@@ -5,6 +5,7 @@ const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 let state = { servers: [], subscriptions: [], settings: {}, routing: {}, activeServerId: null, status: {} };
 let uptimeTimer = null;
+let measuring = false;
 
 /* ---------- helpers ---------- */
 function toast(msg, isError = false) {
@@ -22,7 +23,10 @@ function pingClass(ms) {
   if (ms < 280) return 'mid';
   return 'bad';
 }
-function pingText(ms) { return ms == null ? '—' : `${ms} мс`; }
+function pingText(ms) {
+  if (ms != null) return `${ms} мс`;
+  return measuring ? '…' : '—';
+}
 
 function fmtUptime(start) {
   if (!start) return '—';
@@ -181,6 +185,7 @@ async function refreshState() {
   renderRouting();
   renderSettings();
   renderStatus(state.status);
+  if (state.servers.length) pingAll(true);   // measure latency on startup
 }
 
 async function importSub() {
@@ -196,6 +201,7 @@ async function importSub() {
     renderSubscriptions();
     renderServers();
     toast('Подписка добавлена');
+    pingAll(true);             // auto-measure latency for the new servers
   } catch (e) {
     // Maybe it's a raw config link rather than a subscription.
     try {
@@ -203,6 +209,7 @@ async function importSub() {
       $('#subInput').value = '';
       renderServers();
       toast('Сервер добавлен');
+      pingAll(true);
     } catch (e2) {
       toast(e.message || e2.message, true);
     }
@@ -220,6 +227,7 @@ async function updateSub(url) {
     renderSubscriptions();
     renderServers();
     toast('Подписка обновлена');
+    pingAll(true);
   } catch (e) { toast(e.message, true); }
 }
 
@@ -231,17 +239,21 @@ async function removeSub(url) {
   renderServers();
 }
 
-async function pingAll() {
+async function pingAll(silent = false) {
+  if (measuring) return;
+  measuring = true;
   $('#pingBtn').disabled = true;
   $('#pingBtn').textContent = 'Проверка…';
+  renderServers();              // show "…" placeholders immediately
   try {
     state.servers = await window.hv.pingAll();
-    renderServers();
-    renderStatus(state.status);
-  } catch (e) { toast(e.message, true); }
+  } catch (e) { if (!silent) toast(e.message, true); }
   finally {
+    measuring = false;
     $('#pingBtn').disabled = false;
     $('#pingBtn').textContent = 'Проверить пинг';
+    renderServers();
+    renderStatus(state.status);
   }
 }
 
