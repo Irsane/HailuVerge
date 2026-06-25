@@ -36,9 +36,17 @@
         <button class="nav-item" id="navLogs" data-view="logs"><span class="ic" data-icon="logs"></span> Логи</button>
       </nav>
       <div class="sidebar-foot">
-        <div id="sideStatus" class="side-status off">
-          <span class="dot"></span><span id="sideStatusText">Отключено</span>
-        </div>
+        <button id="sideStatus" class="side-status off" title="Подключить / отключить">
+          <span class="ss-top">
+            <span class="dot"></span>
+            <span id="sideStatusText" class="ss-state">Отключено</span>
+            <span id="sidePing" class="ss-ping"></span>
+          </span>
+          <span id="sideServer" class="ss-server">
+            <span id="sideServerFlag" class="ss-flag flag"></span>
+            <span id="sideServerName">Сервер не выбран</span>
+          </span>
+        </button>
       </div>
     </aside>
 
@@ -209,8 +217,40 @@
 
         <div class="card">
           <div class="field-label"><span class="ic" data-icon="palette"></span> Тема оформления</div>
-          <div class="field-hint">Цвет акцентов и подсветки интерфейса.</div>
+          <div class="field-hint">Перекрашивает всё приложение: фон, поверхности и акценты.</div>
           <div id="themeGrid" class="theme-grid"></div>
+        </div>
+
+        <div class="card">
+          <div class="field-label"><span class="ic" data-icon="sparkles"></span> Внешний вид</div>
+          <div class="field-hint">Поиграйтесь — всё применяется сразу.</div>
+
+          <div class="field-row">
+            <div><div class="field-label">Живой фон</div>
+              <div class="field-hint">Плавная анимированная подсветка за интерфейсом.</div></div>
+            <label class="switch"><input type="checkbox" id="bgAnimation" /><span class="slider"></span></label>
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Стеклянный эффект</div>
+              <div class="field-hint">Матовое размытие за карточками и панелями.</div></div>
+            <label class="switch"><input type="checkbox" id="glassEffect" /><span class="slider"></span></label>
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Плотность интерфейса</div>
+              <div class="field-hint">Просторно или компактно.</div></div>
+            <div class="seg" id="densitySeg">
+              <button data-val="comfortable">Просторно</button>
+              <button data-val="compact">Компактно</button>
+            </div>
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Скругление углов</div></div>
+            <div class="seg" id="radiusSeg">
+              <button data-val="sharp">Острые</button>
+              <button data-val="soft">Мягкие</button>
+              <button data-val="round">Круглые</button>
+            </div>
+          </div>
         </div>
 
         <div class="card">
