@@ -14,6 +14,7 @@ const DEFAULTS = {
   favorites: [],              // ids of servers the user starred
   activeServerId: null,
   settings: {
+    theme: 'indigo',          // accent color theme: indigo|emerald|sunset|rose|cyan|violet
     autoConnect: true,        // connect to best (non-RU) server on launch
     minimizeToTray: true,
     tunMode: true,            // capture ALL traffic incl. UDP (fixes Telegram/Discord); needs admin

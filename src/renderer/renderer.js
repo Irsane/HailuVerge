@@ -23,14 +23,101 @@ const ICONS = {
   shield:   '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
   plus:     '<path d="M5 12h14"/><path d="M12 5v14"/>',
   folder:   '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
-  refresh:  '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>'
+  refresh:  '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  palette:  '<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
+  check:    '<path d="M20 6 9 17l-5-5"/>'
 };
+
+/* ---------- color themes ---------- */
+const THEMES = [
+  { id: 'indigo',  name: 'Индиго',  c1: '#5b7cfa', c2: '#8b5cff' },
+  { id: 'emerald', name: 'Изумруд', c1: '#10b981', c2: '#06b6d4' },
+  { id: 'sunset',  name: 'Закат',   c1: '#f97316', c2: '#f43f5e' },
+  { id: 'rose',    name: 'Роза',    c1: '#f43f5e', c2: '#ec4899' },
+  { id: 'cyan',    name: 'Циан',    c1: '#06b6d4', c2: '#3b82f6' },
+  { id: 'violet',  name: 'Фиолет',  c1: '#a855f7', c2: '#6366f1' }
+];
+function applyTheme(id) {
+  document.documentElement.dataset.theme = THEMES.some((t) => t.id === id) ? id : 'indigo';
+}
+function renderThemes() {
+  const grid = $('#themeGrid');
+  if (!grid) return;
+  const current = state.settings.theme || 'indigo';
+  grid.innerHTML = '';
+  THEMES.forEach((t) => {
+    const btn = document.createElement('button');
+    btn.className = 'theme-card' + (t.id === current ? ' selected' : '');
+    btn.style.setProperty('--sw1', t.c1);
+    btn.style.setProperty('--sw2', t.c2);
+    btn.innerHTML = `
+      <span class="theme-sw"><span class="theme-check">${icon('check')}</span></span>
+      <span class="theme-name">${t.name}</span>`;
+    btn.addEventListener('click', () => setTheme(t.id));
+    grid.appendChild(btn);
+  });
+}
+async function setTheme(id) {
+  applyTheme(id);
+  state.settings.theme = id;
+  renderThemes();
+  state.settings = await window.hv.saveSettings({ theme: id });
+}
 function icon(name) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
 }
 // Fill every [data-icon] placeholder in static markup.
 function injectIcons() {
   $$('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
+}
+
+/* ---------- country flags ---------- */
+// Build a flag emoji from a 2-letter ISO code (rendered via the flag font).
+function flagFromISO(cc) {
+  if (!cc || cc.length !== 2) return '';
+  return String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
+}
+// Map country names (RU + EN keywords) to ISO codes for subscriptions that
+// spell out the location instead of using a flag emoji.
+const COUNTRY_MAP = [
+  ['росси', 'RU'], ['russia', 'RU'], ['москва', 'RU'], ['moscow', 'RU'], ['спб', 'RU'], ['питер', 'RU'],
+  ['великобритан', 'GB'], ['англия', 'GB'], ['британ', 'GB'], ['london', 'GB'], ['united kingdom', 'GB'], ['uk', 'GB'],
+  ['сша', 'US'], ['америк', 'US'], ['united states', 'US'], ['usa', 'US'],
+  ['герман', 'DE'], ['germany', 'DE'], ['франкфурт', 'DE'],
+  ['нидерланд', 'NL'], ['голланд', 'NL'], ['amsterdam', 'NL'], ['netherl', 'NL'],
+  ['швеци', 'SE'], ['sweden', 'SE'], ['stockholm', 'SE'],
+  ['финлянд', 'FI'], ['finland', 'FI'], ['helsinki', 'FI'],
+  ['франци', 'FR'], ['france', 'FR'], ['paris', 'FR'],
+  ['латви', 'LV'], ['latvia', 'LV'], ['riga', 'LV'],
+  ['литв', 'LT'], ['эстони', 'EE'], ['польш', 'PL'], ['poland', 'PL'],
+  ['япони', 'JP'], ['japan', 'JP'], ['tokyo', 'JP'],
+  ['сингапур', 'SG'], ['singapore', 'SG'],
+  ['турци', 'TR'], ['turkey', 'TR'], ['istanbul', 'TR'],
+  ['канад', 'CA'], ['швейцар', 'CH'], ['испани', 'ES'], ['spain', 'ES'],
+  ['итали', 'IT'], ['italy', 'IT'], ['норвег', 'NO'], ['дани', 'DK'], ['чехи', 'CZ'], ['czech', 'CZ'],
+  ['австри', 'AT'], ['бельги', 'BE'], ['ирланди', 'IE'], ['украин', 'UA'], ['ukraine', 'UA'],
+  ['казахстан', 'KZ'], ['эмират', 'AE'], ['оаэ', 'AE'], ['дубай', 'AE'], ['гонконг', 'HK'], ['hong kong', 'HK'],
+  ['корея', 'KR'], ['korea', 'KR'], ['австрали', 'AU'], ['бразили', 'BR'], ['инди', 'IN'], ['india', 'IN'],
+  ['китай', 'CN'], ['china', 'CN'], ['армени', 'AM'], ['грузи', 'GE'], ['georgia', 'GE'], ['молдов', 'MD'],
+  ['беларус', 'BY'], ['румын', 'RO'], ['болгар', 'BG'], ['серби', 'RS'], ['венгри', 'HU'], ['греци', 'GR'],
+  ['португал', 'PT'], ['исланди', 'IS'], ['люксембург', 'LU']
+];
+
+const RI = /[\u{1F1E6}-\u{1F1FF}]{2}/u;   // a regional-indicator pair = a flag emoji
+// Returns { flag, name } — the flag emoji for the server (if any) and the name
+// with any embedded flag stripped out so it isn't shown twice.
+function serverFlag(s) {
+  const raw = s.name || '';
+  const m = raw.match(RI);
+  if (m) {
+    const name = raw.replace(RI, '').replace(/\s{2,}/g, ' ').replace(/^[\s\-–—|·]+|[\s\-–—|·]+$/g, '').trim();
+    return { flag: m[0], name: name || raw };
+  }
+  const lower = raw.toLowerCase();
+  const hit = COUNTRY_MAP.find(([kw]) => lower.includes(kw));
+  if (hit) return { flag: flagFromISO(hit[1]), name: raw };
+  if (s.isRussian) return { flag: flagFromISO('RU'), name: raw };
+  return { flag: '', name: raw };
 }
 
 /* ---------- helpers ---------- */
@@ -140,12 +227,17 @@ function buildServerRow(s) {
   div.className = 'server' + (s.id === state.activeServerId ? ' active' : '');
   const isActive = s.id === state.activeServerId && state.status.running;
   const fav = isFavorite(s.id);
+  const { flag, name } = serverFlag(s);
+  const flagHtml = flag
+    ? `<span class="s-flag flag">${flag}</span>`
+    : `<span class="s-flag s-flag-none">${icon('globe')}</span>`;
   div.innerHTML = `
     ${isActive ? '<span class="s-active-dot"></span>' : ''}
+    ${flagHtml}
     <div class="s-main">
-      <div class="s-name">${escapeHtml(s.name)}</div>
+      <div class="s-name">${escapeHtml(name)}</div>
     </div>
-    <span class="badge ${s.isRussian ? 'ru' : ''}">${s.protocol}${s.isRussian ? ' · RU' : ''}</span>
+    <span class="badge ${s.isRussian ? 'ru' : ''}">${escapeHtml(s.protocol)}</span>
     <span class="ping ${pingClass(s.latency)}">${pingText(s.latency)}</span>
     <button class="s-fav ${fav ? 'on' : ''}" title="${fav ? 'Убрать из избранного' : 'В избранное'}"
             aria-label="${fav ? 'Убрать из избранного' : 'В избранное'}">${icon('star')}</button>`;
@@ -256,6 +348,8 @@ function applyRouteMode(mode) {
 
 function renderSettings() {
   const s = state.settings;
+  applyTheme(s.theme || 'indigo');
+  renderThemes();
   $('#autoConnect').checked = !!s.autoConnect;
   $('#minimizeToTray').checked = !!s.minimizeToTray;
   $('#logsEnabled').checked = !!s.logsEnabled;
