@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+  <title>HailuVerge</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-logo">HV</div>
+        <div class="brand-name">HailuVerge</div>
+      </div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="home"><span class="ic">⚡</span> Главная</button>
+        <button class="nav-item" data-view="servers"><span class="ic">🌐</span> Серверы</button>
+        <button class="nav-item" data-view="routing"><span class="ic">🧭</span> Маршрутизация</button>
+        <button class="nav-item" data-view="settings"><span class="ic">⚙️</span> Настройки</button>
+        <button class="nav-item" data-view="logs"><span class="ic">📋</span> Логи</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div id="sideStatus" class="side-status off">
+          <span class="dot"></span><span id="sideStatusText">Отключено</span>
+        </div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <!-- HOME -->
+      <section class="view active" id="view-home">
+        <div class="hero">
+          <div class="power-wrap">
+            <button id="powerBtn" class="power off" title="Подключить">
+              <span class="power-glyph">⏻</span>
+            </button>
+          </div>
+          <div id="heroStatus" class="hero-status">Отключено</div>
+          <div id="heroServer" class="hero-server">Сервер не выбран</div>
+          <div class="hero-actions">
+            <button id="bestBtn" class="btn btn-ghost">Авто (лучший пинг)</button>
+          </div>
+          <div class="hero-stats">
+            <div class="stat"><div class="stat-label">Протокол</div><div id="statProto" class="stat-value">—</div></div>
+            <div class="stat"><div class="stat-label">Пинг</div><div id="statPing" class="stat-value">—</div></div>
+            <div class="stat"><div class="stat-label">Время</div><div id="statUptime" class="stat-value">—</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SERVERS -->
+      <section class="view" id="view-servers">
+        <div class="view-head">
+          <h2>Серверы</h2>
+          <div class="row-gap">
+            <button id="pingBtn" class="btn btn-ghost">Проверить пинг</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="field-label">Ссылка на подписку или конфиг (vless:// hysteria2:// …)</div>
+          <div class="row-gap">
+            <input id="subInput" class="input" placeholder="https://auth.example.ru/XXXXXXXX" />
+            <button id="importBtn" class="btn btn-primary">Добавить</button>
+          </div>
+          <div id="subList" class="sub-list"></div>
+        </div>
+
+        <div id="serverList" class="server-list"></div>
+      </section>
+
+      <!-- ROUTING -->
+      <section class="view" id="view-routing">
+        <div class="view-head"><h2>Маршрутизация</h2></div>
+
+        <div class="card">
+          <div class="field-row">
+            <div>
+              <div class="field-label">Режим</div>
+              <div class="field-hint">Правила — умное разделение. Глобально — весь трафик через прокси.</div>
+            </div>
+            <select id="routeMode" class="select">
+              <option value="rule">По правилам</option>
+              <option value="global">Глобально</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <div>
+              <div class="field-label">Прочий трафик</div>
+              <div class="field-hint">Куда направлять то, что не попало под правила.</div>
+            </div>
+            <select id="finalOutbound" class="select">
+              <option value="proxy">Через прокси</option>
+              <option value="direct">Напрямую</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <div>
+              <div class="field-label">Блокировать рекламу</div>
+              <div class="field-hint">Фильтр рекламных и трекинговых доменов.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="blockAds" /><span class="slider"></span></label>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="field-label">Через прокси (домены)</div>
+            <div class="field-hint">Каждый домен с новой строки. Заблокированные сайты.</div>
+            <textarea id="proxyDomains" class="textarea" spellcheck="false"></textarea>
+          </div>
+          <div class="card">
+            <div class="field-label">Напрямую (домены)</div>
+            <div class="field-hint">Российские и локальные сервисы — мимо прокси.</div>
+            <textarea id="directDomains" class="textarea" spellcheck="false"></textarea>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="field-row">
+            <div>
+              <div class="field-label">Прокси только для выбранных приложений</div>
+              <div class="field-hint">Режим TUN (нужны права администратора). Перечислите процессы.</div>
+            </div>
+            <select id="appMode" class="select">
+              <option value="off">Выключено</option>
+              <option value="proxy">Только эти — через прокси</option>
+              <option value="direct">Только эти — напрямую</option>
+            </select>
+          </div>
+          <textarea id="appList" class="textarea" spellcheck="false" placeholder="chrome.exe&#10;telegram.exe&#10;discord.exe"></textarea>
+        </div>
+
+        <div class="view-foot">
+          <button id="saveRouting" class="btn btn-primary">Сохранить маршрутизацию</button>
+          <span id="routingSaved" class="saved-hint"></span>
+        </div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section class="view" id="view-settings">
+        <div class="view-head"><h2>Настройки</h2></div>
+        <div class="card">
+          <div class="field-row">
+            <div><div class="field-label">Автоподключение при запуске</div>
+              <div class="field-hint">Подключаться к серверу с лучшим пингом (кроме РФ).</div></div>
+            <label class="switch"><input type="checkbox" id="autoConnect" /><span class="slider"></span></label>
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Системный прокси</div>
+              <div class="field-hint">Автоматически направлять трафик системы через HailuVerge.</div></div>
+            <label class="switch"><input type="checkbox" id="systemProxy" /><span class="slider"></span></label>
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Сворачивать в трей</div></div>
+            <label class="switch"><input type="checkbox" id="minimizeToTray" /><span class="slider"></span></label>
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Доступ из локальной сети</div>
+              <div class="field-hint">Разрешить другим устройствам использовать прокси.</div></div>
+            <label class="switch"><input type="checkbox" id="allowLan" /><span class="slider"></span></label>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="field-row">
+            <div><div class="field-label">Порт SOCKS</div></div>
+            <input id="socksPort" class="input input-sm" type="number" />
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Порт HTTP</div></div>
+            <input id="httpPort" class="input input-sm" type="number" />
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="field-label">Ядро sing-box</div>
+          <div id="binaryStatus" class="binary-status"></div>
+          <div class="row-gap">
+            <input id="coreBinaryPath" class="input" placeholder="Путь к бинарнику sing-box (необязательно)" />
+            <button id="openCoreFolder" class="btn btn-ghost">Папка ядра</button>
+          </div>
+          <div class="field-hint">Скачайте sing-box и положите бинарник в папку ядра, либо укажите путь.</div>
+        </div>
+
+        <div class="view-foot">
+          <button id="saveSettings" class="btn btn-primary">Сохранить настройки</button>
+          <span id="settingsSaved" class="saved-hint"></span>
+        </div>
+      </section>
+
+      <!-- LOGS -->
+      <section class="view" id="view-logs">
+        <div class="view-head">
+          <h2>Логи</h2>
+          <button id="clearLogs" class="btn btn-ghost">Очистить</button>
+        </div>
+        <pre id="logBox" class="log-box"></pre>
+      </section>
+    </main>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="renderer.js"></script>
+</body>
+</html>

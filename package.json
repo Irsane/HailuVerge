@@ -1,0 +1,53 @@
+{
+  "name": "hailuverge",
+  "version": "1.0.0",
+  "description": "HailuVerge — a simple, modern desktop proxy client (VLESS / Hysteria / TCP / UDP / XUDP)",
+  "main": "src/main/main.js",
+  "author": "HailuVerge",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "core": "node scripts/download-core.js",
+    "icon": "node scripts/gen-icon.js",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.hailuverge.app",
+    "productName": "HailuVerge",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "!**/*.map"
+    ],
+    "extraResources": [
+      {
+        "from": "core",
+        "to": "core",
+        "filter": ["**/*"]
+      }
+    ],
+    "win": {
+      "target": ["nsis"],
+      "icon": "assets/icon.png"
+    },
+    "mac": {
+      "target": ["dmg"],
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "assets/icon.png"
+    }
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}

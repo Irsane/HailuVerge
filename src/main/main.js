@@ -1,0 +1,228 @@
+'use strict';
+
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell } = require('electron');
+const path = require('path');
+
+const store = require('./store');
+const subscription = require('./subscription');
+const ping = require('./ping');
+const core = require('./core');
+
+const isDev = process.argv.includes('--dev');
+
+let mainWindow = null;
+let tray = null;
+let isQuitting = false;
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1040,
+    height: 720,
+    minWidth: 880,
+    minHeight: 600,
+    backgroundColor: '#0e1116',
+    show: false,
+    autoHideMenuBar: true,
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    }
+  });
+
+  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+
+  mainWindow.once('ready-to-show', () => mainWindow.show());
+
+  if (isDev) mainWindow.webContents.openDevTools({ mode: 'detach' });
+
+  mainWindow.on('close', (e) => {
+    if (!isQuitting && store.get('settings').minimizeToTray) {
+      e.preventDefault();
+      mainWindow.hide();
+    }
+  });
+
+  mainWindow.on('closed', () => { mainWindow = null; });
+}
+
+function createTray() {
+  const icon = nativeImage.createFromPath(path.join(__dirname, '..', '..', 'assets', 'icon.png'));
+  tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon.resize({ width: 18, height: 18 }));
+  tray.setToolTip('HailuVerge');
+  refreshTrayMenu();
+  tray.on('click', () => {
+    if (!mainWindow) return;
+    mainWindow.isVisible() ? mainWindow.focus() : mainWindow.show();
+  });
+}
+
+function refreshTrayMenu() {
+  if (!tray) return;
+  const connected = core.isRunning();
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: connected ? '● Подключено' : '○ Отключено', enabled: false },
+    { type: 'separator' },
+    { label: 'Открыть', click: () => mainWindow && mainWindow.show() },
+    {
+      label: connected ? 'Отключить' : 'Подключить',
+      click: async () => {
+        connected ? await core.stop() : await connectBest();
+        broadcastStatus();
+      }
+    },
+    { type: 'separator' },
+    { label: 'Выход', click: () => { isQuitting = true; app.quit(); } }
+  ]));
+}
+
+function broadcastStatus() {
+  refreshTrayMenu();
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('status:update', core.status());
+  }
+}
+
+core.on('status', broadcastStatus);
+core.on('log', (line) => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('core:log', line);
+});
+
+// Connect to the lowest-latency server (excluding Russian servers, per requirement).
+async function connectBest() {
+  const servers = store.get('servers');
+  if (!servers.length) throw new Error('Нет серверов. Добавьте подписку.');
+  const candidates = servers.filter((s) => !s.isRussian);
+  const pool = candidates.length ? candidates : servers;
+  const results = await ping.measureAll(pool);
+  const best = results
+    .filter((r) => r.latency != null)
+    .sort((a, b) => a.latency - b.latency)[0];
+  const chosen = best ? best.server : pool[0];
+  await core.start(chosen, store.get('settings'), store.get('routing'));
+  store.set('activeServerId', chosen.id);
+  return chosen;
+}
+
+function registerIpc() {
+  ipcMain.handle('app:getState', () => ({
+    servers: store.get('servers'),
+    subscriptions: store.get('subscriptions'),
+    settings: store.get('settings'),
+    routing: store.get('routing'),
+    activeServerId: store.get('activeServerId'),
+    status: core.status()
+  }));
+
+  ipcMain.handle('sub:import', async (_e, url) => {
+    const sub = await subscription.fetchAndParse(url);
+    const subs = store.get('subscriptions').filter((s) => s.url !== url);
+    subs.push({ url, name: sub.name, updatedAt: Date.now(), count: sub.servers.length });
+    store.set('subscriptions', subs);
+    mergeServers(url, sub.servers);
+    return { servers: store.get('servers'), subscriptions: store.get('subscriptions') };
+  });
+
+  ipcMain.handle('sub:update', async (_e, url) => {
+    const sub = await subscription.fetchAndParse(url);
+    const subs = store.get('subscriptions').map((s) =>
+      s.url === url ? { ...s, updatedAt: Date.now(), count: sub.servers.length, name: sub.name } : s);
+    store.set('subscriptions', subs);
+    mergeServers(url, sub.servers);
+    return { servers: store.get('servers'), subscriptions: store.get('subscriptions') };
+  });
+
+  ipcMain.handle('sub:remove', async (_e, url) => {
+    store.set('subscriptions', store.get('subscriptions').filter((s) => s.url !== url));
+    store.set('servers', store.get('servers').filter((s) => s.source !== url));
+    return { servers: store.get('servers'), subscriptions: store.get('subscriptions') };
+  });
+
+  ipcMain.handle('servers:addLink', async (_e, link) => {
+    const parsed = subscription.parseLinks(link);
+    if (!parsed.length) throw new Error('Не удалось распознать ссылку.');
+    mergeServers('manual', parsed, true);
+    return store.get('servers');
+  });
+
+  ipcMain.handle('ping:all', async () => {
+    const results = await ping.measureAll(store.get('servers'));
+    const map = {};
+    results.forEach((r) => { map[r.server.id] = r.latency; });
+    const servers = store.get('servers').map((s) => ({ ...s, latency: map[s.id] ?? s.latency }));
+    store.set('servers', servers);
+    return servers;
+  });
+
+  ipcMain.handle('core:connect', async (_e, serverId) => {
+    const server = store.get('servers').find((s) => s.id === serverId);
+    if (!server) throw new Error('Сервер не найден.');
+    await core.start(server, store.get('settings'), store.get('routing'));
+    store.set('activeServerId', serverId);
+    return core.status();
+  });
+
+  ipcMain.handle('core:connectBest', async () => {
+    const chosen = await connectBest();
+    return { status: core.status(), serverId: chosen.id };
+  });
+
+  ipcMain.handle('core:disconnect', async () => {
+    await core.stop();
+    return core.status();
+  });
+
+  ipcMain.handle('settings:save', async (_e, settings) => {
+    store.set('settings', { ...store.get('settings'), ...settings });
+    return store.get('settings');
+  });
+
+  ipcMain.handle('routing:save', async (_e, routing) => {
+    store.set('routing', { ...store.get('routing'), ...routing });
+    // Hot-reload routing if connected.
+    if (core.isRunning()) {
+      const active = store.get('servers').find((s) => s.id === store.get('activeServerId'));
+      if (active) await core.start(active, store.get('settings'), store.get('routing'));
+    }
+    return store.get('routing');
+  });
+
+  ipcMain.handle('core:checkBinary', async () => core.checkBinary());
+  ipcMain.handle('app:openExternal', async (_e, url) => shell.openExternal(url));
+  ipcMain.handle('app:openCoreFolder', async () => shell.openPath(core.coreDir()));
+}
+
+function mergeServers(source, incoming, isManual = false) {
+  const existing = store.get('servers');
+  const kept = isManual ? existing : existing.filter((s) => s.source !== source);
+  const tagged = incoming.map((s) => ({ ...s, source: isManual ? 'manual' : source }));
+  // De-duplicate by id (host:port:protocol signature).
+  const byId = new Map();
+  [...kept, ...tagged].forEach((s) => byId.set(s.id, { ...byId.get(s.id), ...s }));
+  store.set('servers', [...byId.values()]);
+}
+
+app.whenReady().then(() => {
+  store.init();
+  registerIpc();
+  createWindow();
+  createTray();
+
+  if (store.get('settings').autoConnect) {
+    connectBest().then(broadcastStatus).catch((err) => {
+      if (mainWindow) mainWindow.webContents.send('core:log', `[auto] ${err.message}`);
+    });
+  }
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on('before-quit', () => { isQuitting = true; });
+app.on('quit', () => core.stop());
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin' && !store.get('settings').minimizeToTray) app.quit();
+});
