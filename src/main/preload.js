@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('hv', {
   updateSub: (url) => ipcRenderer.invoke('sub:update', url),
   removeSub: (url) => ipcRenderer.invoke('sub:remove', url),
   addLink: (link) => ipcRenderer.invoke('servers:addLink', link),
+  toggleFavorite: (serverId) => ipcRenderer.invoke('servers:toggleFavorite', serverId),
 
   pingAll: () => ipcRenderer.invoke('ping:all'),
 

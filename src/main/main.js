@@ -113,11 +113,22 @@ function registerIpc() {
   ipcMain.handle('app:getState', () => ({
     servers: store.get('servers'),
     subscriptions: store.get('subscriptions'),
+    favorites: store.get('favorites') || [],
     settings: store.get('settings'),
     routing: store.get('routing'),
     activeServerId: store.get('activeServerId'),
     status: core.status()
   }));
+
+  // Toggle a server in/out of the favorites list. Returns the updated id list.
+  ipcMain.handle('servers:toggleFavorite', (_e, serverId) => {
+    const favorites = store.get('favorites') || [];
+    const next = favorites.includes(serverId)
+      ? favorites.filter((id) => id !== serverId)
+      : [...favorites, serverId];
+    store.set('favorites', next);
+    return next;
+  });
 
   ipcMain.handle('sub:import', async (_e, url) => {
     const sub = await subscription.fetchAndParse(url);
@@ -140,7 +151,14 @@ function registerIpc() {
   ipcMain.handle('sub:remove', async (_e, url) => {
     store.set('subscriptions', store.get('subscriptions').filter((s) => s.url !== url));
     store.set('servers', store.get('servers').filter((s) => s.source !== url));
-    return { servers: store.get('servers'), subscriptions: store.get('subscriptions') };
+    // Drop favorites whose server no longer exists.
+    const ids = new Set(store.get('servers').map((s) => s.id));
+    store.set('favorites', (store.get('favorites') || []).filter((id) => ids.has(id)));
+    return {
+      servers: store.get('servers'),
+      subscriptions: store.get('subscriptions'),
+      favorites: store.get('favorites')
+    };
   });
 
   ipcMain.handle('servers:addLink', async (_e, link) => {

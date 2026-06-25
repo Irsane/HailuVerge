@@ -11,6 +11,7 @@ let data = null;
 const DEFAULTS = {
   servers: [],
   subscriptions: [],
+  favorites: [],              // ids of servers the user starred
   activeServerId: null,
   settings: {
     autoConnect: true,        // connect to best (non-RU) server on launch

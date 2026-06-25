@@ -3,10 +3,35 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-let state = { servers: [], subscriptions: [], settings: {}, routing: {}, activeServerId: null, status: {} };
+let state = { servers: [], subscriptions: [], favorites: [], settings: {}, routing: {}, activeServerId: null, status: {} };
 let uptimeTimer = null;
 let measuring = false;
 let sortMode = 'default';
+
+/* ---------- inline SVG icons (Lucide-style; no emoji in UI controls) ---------- */
+const ICONS = {
+  bolt:     '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  globe:    '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  star:     '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  route:    '<circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/>',
+  settings: '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+  logs:     '<path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/>',
+  pulse:    '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  lock:     '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+  arrow:    '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  target:   '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  shield:   '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>',
+  plus:     '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  folder:   '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>',
+  refresh:  '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>'
+};
+function icon(name) {
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+}
+// Fill every [data-icon] placeholder in static markup.
+function injectIcons() {
+  $$('[data-icon]').forEach((el) => { el.innerHTML = icon(el.dataset.icon); });
+}
 
 /* ---------- helpers ---------- */
 function toast(msg, isError = false) {
@@ -107,6 +132,42 @@ function renderSubscriptions() {
     b.addEventListener('click', () => removeSub(decodeURIComponent(b.dataset.del))));
 }
 
+function isFavorite(id) { return (state.favorites || []).includes(id); }
+
+// Build a single server row (used by both the Servers list and Favorites).
+function buildServerRow(s) {
+  const div = document.createElement('div');
+  div.className = 'server' + (s.id === state.activeServerId ? ' active' : '');
+  const isActive = s.id === state.activeServerId && state.status.running;
+  const fav = isFavorite(s.id);
+  div.innerHTML = `
+    ${isActive ? '<span class="s-active-dot"></span>' : ''}
+    <div class="s-main">
+      <div class="s-name">${escapeHtml(s.name)}</div>
+    </div>
+    <span class="badge ${s.isRussian ? 'ru' : ''}">${s.protocol}${s.isRussian ? ' · RU' : ''}</span>
+    <span class="ping ${pingClass(s.latency)}">${pingText(s.latency)}</span>
+    <button class="s-fav ${fav ? 'on' : ''}" title="${fav ? 'Убрать из избранного' : 'В избранное'}"
+            aria-label="${fav ? 'Убрать из избранного' : 'В избранное'}">${icon('star')}</button>`;
+  // Clicking the row connects; clicking the star toggles favorite without connecting.
+  div.addEventListener('click', () => connect(s.id));
+  div.querySelector('.s-fav').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleFavorite(s.id);
+  });
+  return div;
+}
+
+function sortServers(list) {
+  const sorted = [...list];
+  if (sortMode === 'ping') {
+    sorted.sort((a, b) => (a.latency ?? Infinity) - (b.latency ?? Infinity));
+  } else if (sortMode === 'name') {
+    sorted.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  }
+  return sorted;
+}
+
 function renderServers() {
   const wrap = $('#serverList');
   wrap.innerHTML = '';
@@ -114,28 +175,32 @@ function renderServers() {
     wrap.innerHTML = '<div class="empty">Нет серверов. Добавьте подписку выше.</div>';
     return;
   }
-  // Sort according to the selected mode. "default" keeps insertion order.
-  let sorted = [...state.servers];
-  if (sortMode === 'ping') {
-    sorted.sort((a, b) => (a.latency ?? Infinity) - (b.latency ?? Infinity));
-  } else if (sortMode === 'name') {
-    sorted.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
-  }
+  sortServers(state.servers).forEach((s) => wrap.appendChild(buildServerRow(s)));
+}
 
-  sorted.forEach((s) => {
-    const div = document.createElement('div');
-    div.className = 'server' + (s.id === state.activeServerId ? ' active' : '');
-    const isActive = s.id === state.activeServerId && state.status.running;
-    div.innerHTML = `
-      ${isActive ? '<span class="s-active-dot"></span>' : ''}
-      <div class="s-main">
-        <div class="s-name">${escapeHtml(s.name)}</div>
-      </div>
-      <span class="badge ${s.isRussian ? 'ru' : ''}">${s.protocol}${s.isRussian ? ' · RU' : ''}</span>
-      <span class="ping ${pingClass(s.latency)}">${pingText(s.latency)}</span>`;
-    div.addEventListener('click', () => connect(s.id));
-    wrap.appendChild(div);
-  });
+function renderFavorites() {
+  const wrap = $('#favoriteList');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const favServers = sortServers(state.servers.filter((s) => isFavorite(s.id)));
+  if (!favServers.length) {
+    wrap.innerHTML = `
+      <div class="empty-rich">
+        <div class="empty-ic">${icon('star')}</div>
+        <div class="empty-title">Здесь пока пусто</div>
+        <div class="empty-sub">Откройте «Серверы» и нажмите ★ у любого сервера, чтобы добавить его в избранное.</div>
+      </div>`;
+    return;
+  }
+  favServers.forEach((s) => wrap.appendChild(buildServerRow(s)));
+}
+
+async function toggleFavorite(id) {
+  const wasFav = isFavorite(id);
+  state.favorites = await window.hv.toggleFavorite(id);
+  renderServers();
+  renderFavorites();
+  toast(wasFav ? 'Убрано из избранного' : 'Добавлено в избранное');
 }
 
 let appList = [];   // selected application process names (chips)
@@ -239,6 +304,7 @@ async function refreshState() {
   state = await window.hv.getState();
   renderSubscriptions();
   renderServers();
+  renderFavorites();
   renderRouting();
   renderSettings();
   renderStatus(state.status);
@@ -302,14 +368,16 @@ async function pingAll(silent = false) {
   $('#pingBtn').disabled = true;
   $('#pingBtn').textContent = 'Проверка…';
   renderServers();              // show "…" placeholders immediately
+  renderFavorites();
   try {
     state.servers = await window.hv.pingAll();
   } catch (e) { if (!silent) toast(e.message, true); }
   finally {
     measuring = false;
     $('#pingBtn').disabled = false;
-    $('#pingBtn').textContent = 'Проверить пинг';
+    $('#pingBtn').innerHTML = `${icon('pulse')} Проверить пинг`;
     renderServers();
+    renderFavorites();
     renderStatus(state.status);
   }
 }
@@ -438,6 +506,7 @@ function appendLog(line) {
 $('#importBtn').addEventListener('click', importSub);
 $('#subInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') importSub(); });
 $('#pingBtn').addEventListener('click', () => pingAll());
+$('#pingFavBtn').addEventListener('click', () => pingAll());
 $('#sortMode').addEventListener('change', (e) => { sortMode = e.target.value; renderServers(); });
 $('#powerBtn').addEventListener('click', togglePower);
 $('#bestBtn').addEventListener('click', connectBest);
@@ -511,7 +580,8 @@ $('#saveSettings').addEventListener('click', saveSettings);
 $('#openCoreFolder').addEventListener('click', () => window.hv.openCoreFolder());
 $('#clearLogs').addEventListener('click', () => { logBox.textContent = ''; });
 
-window.hv.onStatus((s) => { renderStatus(s); renderServers(); });
+window.hv.onStatus((s) => { renderStatus(s); renderServers(); renderFavorites(); });
 window.hv.onLog((line) => appendLog(line));
 
+injectIcons();   // fill static [data-icon] placeholders (nav, brand, route cards…)
 refreshState();

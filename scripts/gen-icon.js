@@ -1,7 +1,7 @@
 'use strict';
 
-// Generates assets/icon.png (256x256) with a diagonal blue→purple gradient and "HV".
-// No external deps — emits a valid PNG via zlib.
+// Generates assets/icon.png (256x256): a diagonal blue→purple gradient tile with a
+// lightning-bolt mark (matching the in-app logo). No external deps — emits a PNG via zlib.
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
@@ -10,23 +10,22 @@ const SIZE = 256;
 
 function lerp(a, b, t) { return Math.round(a + (b - a) * t); }
 
-// 5x7 bitmap font for H and V.
-const GLYPHS = {
-  H: ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
-  V: ['10001', '10001', '10001', '10001', '01010', '01010', '00100']
-};
+// Lightning-bolt outline (in 256-canvas coordinates).
+const BOLT = [
+  [144, 38], [82, 138], [120, 138], [104, 218], [178, 112], [134, 112]
+];
 
-function drawGlyph(buf, glyph, ox, oy, scale) {
-  glyph.forEach((row, y) => {
-    [...row].forEach((c, x) => {
-      if (c !== '1') return;
-      for (let dy = 0; dy < scale; dy++) {
-        for (let dx = 0; dx < scale; dx++) {
-          setPixel(buf, ox + x * scale + dx, oy + y * scale + dy, 255, 255, 255, 255);
-        }
-      }
-    });
-  });
+// Even-odd point-in-polygon test.
+function inPoly(px, py, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    const intersect = ((yi > py) !== (yj > py)) &&
+      (px < ((xj - xi) * (py - yi)) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
 }
 
 function setPixel(buf, x, y, r, g, b, a) {
@@ -42,9 +41,9 @@ function build() {
     raw[y * (SIZE * 4 + 1)] = 0;
     for (let x = 0; x < SIZE; x++) {
       const t = (x + y) / (2 * SIZE);
-      const r = lerp(0x4f, 0x9b, t);
-      const g = lerp(0x7c, 0x5c, t);
-      const b = lerp(0xff, 0xff, t);
+      let r = lerp(0x4f, 0x9b, t);
+      let g = lerp(0x7c, 0x5c, t);
+      let b = lerp(0xff, 0xff, t);
       // Rounded corners → transparent.
       const radius = 48;
       const inX = Math.min(x, SIZE - 1 - x);
@@ -54,18 +53,11 @@ function build() {
         const dx = radius - inX, dy = radius - inY;
         if (dx * dx + dy * dy > radius * radius) a = 0;
       }
+      // Lightning bolt in white, with a soft outer edge for crispness.
+      if (inPoly(x + 0.5, y + 0.5, BOLT)) { r = 255; g = 255; b = 255; }
       setPixel(raw, x, y, r, g, b, a);
     }
   }
-
-  // "HV" centered.
-  const scale = 14;
-  const glyphW = 5 * scale;
-  const totalW = glyphW * 2 + scale * 2;
-  const startX = Math.round((SIZE - totalW) / 2);
-  const startY = Math.round((SIZE - 7 * scale) / 2);
-  drawGlyph(raw, GLYPHS.H, startX, startY, scale);
-  drawGlyph(raw, GLYPHS.V, startX + glyphW + scale * 2, startY, scale);
 
   const png = encodePng(raw);
   const out = path.join(__dirname, '..', 'assets', 'icon.png');

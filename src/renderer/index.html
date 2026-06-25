@@ -10,15 +10,30 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-logo">HV</div>
+        <div class="brand-logo">
+          <svg viewBox="0 0 48 48" width="38" height="38" aria-hidden="true">
+            <defs>
+              <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#5b7cfa"/>
+                <stop offset="1" stop-color="#8b5cff"/>
+              </linearGradient>
+            </defs>
+            <rect x="2" y="2" width="44" height="44" rx="13" fill="url(#brandGrad)"/>
+            <path d="M24 7 L38 13 V24 C38 32.5 32 38.5 24 41 C16 38.5 10 32.5 10 24 V13 Z"
+                  fill="rgba(255,255,255,.14)" stroke="rgba(255,255,255,.55)" stroke-width="1.5"/>
+            <path d="M26 14 L17 26 H23 L22 34 L31 21 H25 Z"
+                  fill="#fff"/>
+          </svg>
+        </div>
         <div class="brand-name">HailuVerge</div>
       </div>
       <nav class="nav">
-        <button class="nav-item active" data-view="home"><span class="ic">⚡</span> Главная</button>
-        <button class="nav-item" data-view="servers"><span class="ic">🌐</span> Серверы</button>
-        <button class="nav-item" data-view="routing"><span class="ic">🧭</span> Маршрутизация</button>
-        <button class="nav-item" data-view="settings"><span class="ic">⚙️</span> Настройки</button>
-        <button class="nav-item" id="navLogs" data-view="logs"><span class="ic">📋</span> Логи</button>
+        <button class="nav-item active" data-view="home"><span class="ic" data-icon="bolt"></span> Главная</button>
+        <button class="nav-item" data-view="servers"><span class="ic" data-icon="globe"></span> Серверы</button>
+        <button class="nav-item" data-view="favorites"><span class="ic" data-icon="star"></span> Избранное</button>
+        <button class="nav-item" data-view="routing"><span class="ic" data-icon="route"></span> Маршрутизация</button>
+        <button class="nav-item" data-view="settings"><span class="ic" data-icon="settings"></span> Настройки</button>
+        <button class="nav-item" id="navLogs" data-view="logs"><span class="ic" data-icon="logs"></span> Логи</button>
       </nav>
       <div class="sidebar-foot">
         <div id="sideStatus" class="side-status off">
@@ -33,7 +48,10 @@
         <div class="hero">
           <div class="power-wrap">
             <button id="powerBtn" class="power off" title="Подключить">
-              <span class="power-glyph">⏻</span>
+              <svg class="power-glyph" viewBox="0 0 24 24" width="62" height="62" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>
+              </svg>
             </button>
           </div>
           <div id="heroStatus" class="hero-status">Отключено</div>
@@ -71,7 +89,7 @@
               <option value="ping">Сортировка: по пингу</option>
               <option value="name">Сортировка: по названию</option>
             </select>
-            <button id="pingBtn" class="btn btn-ghost">Проверить пинг</button>
+            <button id="pingBtn" class="btn btn-ghost"><span class="ic" data-icon="pulse"></span> Проверить пинг</button>
           </div>
         </div>
 
@@ -87,6 +105,15 @@
         <div id="serverList" class="server-list"></div>
       </section>
 
+      <!-- FAVORITES -->
+      <section class="view" id="view-favorites">
+        <div class="view-head">
+          <h2>Избранное</h2>
+          <button id="pingFavBtn" class="btn btn-ghost"><span class="ic" data-icon="pulse"></span> Проверить пинг</button>
+        </div>
+        <div id="favoriteList" class="server-list"></div>
+      </section>
+
       <!-- ROUTING -->
       <section class="view" id="view-routing">
         <div class="view-head"><h2>Маршрутизация</h2></div>
@@ -96,12 +123,18 @@
           <div class="step"><span class="step-num">1</span> Как пускать трафик?</div>
           <div class="route-choice" id="routeModeChoice">
             <button class="route-card" data-mode="global">
-              <div class="route-card-title">🌍 Всё через прокси</div>
-              <div class="route-card-desc">Весь интернет идёт через VPN. Самый простой вариант.</div>
+              <div class="route-card-icon" data-icon="globe"></div>
+              <div class="route-card-body">
+                <div class="route-card-title">Всё через прокси</div>
+                <div class="route-card-desc">Весь интернет идёт через VPN. Самый простой вариант.</div>
+              </div>
             </button>
             <button class="route-card" data-mode="rule">
-              <div class="route-card-title">🧭 По правилам</div>
-              <div class="route-card-desc">Сам выбираешь, какие сайты и приложения через прокси, а какие напрямую.</div>
+              <div class="route-card-icon" data-icon="route"></div>
+              <div class="route-card-body">
+                <div class="route-card-title">По правилам</div>
+                <div class="route-card-desc">Сам выбираешь, какие сайты и приложения через прокси, а какие напрямую.</div>
+              </div>
             </button>
           </div>
           <input type="hidden" id="routeMode" value="global" />
@@ -126,19 +159,19 @@
 
           <div class="grid-2">
             <div class="card accent-proxy">
-              <div class="field-label">🔒 Через прокси — эти сайты</div>
+              <div class="field-label"><span class="ic" data-icon="lock"></span> Через прокси — эти сайты</div>
               <div class="field-hint">Домены, которые всегда идут через VPN (например, заблокированные). По одному в строке.</div>
               <textarea id="proxyDomains" class="textarea" spellcheck="false" placeholder="youtube.com&#10;instagram.com"></textarea>
             </div>
             <div class="card accent-direct">
-              <div class="field-label">➡️ Напрямую — эти сайты</div>
+              <div class="field-label"><span class="ic" data-icon="arrow"></span> Напрямую — эти сайты</div>
               <div class="field-hint">Домены мимо VPN (банки, госуслуги, российские сервисы). По одному в строке.</div>
               <textarea id="directDomains" class="textarea" spellcheck="false" placeholder="sberbank.ru&#10;gosuslugi.ru"></textarea>
             </div>
           </div>
 
           <div class="card">
-            <div class="field-label">🎯 Правило для приложений</div>
+            <div class="field-label"><span class="ic" data-icon="target"></span> Правило для приложений</div>
             <div class="field-hint">Применить прокси/прямой доступ только к выбранным программам.</div>
             <div class="row-gap" style="margin-top:10px">
               <select id="appMode" class="select">
@@ -146,8 +179,8 @@
                 <option value="proxy">Только эти — через прокси</option>
                 <option value="direct">Только эти — напрямую</option>
               </select>
-              <button id="pickRunning" class="btn btn-ghost btn-sm">➕ Из запущенных</button>
-              <button id="pickFolder" class="btn btn-ghost btn-sm">📁 Из папки</button>
+              <button id="pickRunning" class="btn btn-ghost btn-sm"><span class="ic" data-icon="plus"></span> Из запущенных</button>
+              <button id="pickFolder" class="btn btn-ghost btn-sm"><span class="ic" data-icon="folder"></span> Из папки</button>
             </div>
             <div id="appChips" class="chips"></div>
           </div>
@@ -157,7 +190,7 @@
         <div class="card">
           <div class="field-row">
             <div>
-              <div class="field-label">🛡 Блокировать рекламу</div>
+              <div class="field-label"><span class="ic" data-icon="shield"></span> Блокировать рекламу</div>
               <div class="field-hint">Фильтрует рекламные и трекинговые домены. Работает в любом режиме.</div>
             </div>
             <label class="switch"><input type="checkbox" id="blockAds" /><span class="slider"></span></label>
@@ -245,7 +278,7 @@
       <input id="appSearch" class="input" placeholder="Поиск…" />
       <div id="appModalList" class="modal-list"></div>
       <div class="modal-foot">
-        <button id="appModalRefresh" class="btn btn-ghost btn-sm">⟳ Обновить</button>
+        <button id="appModalRefresh" class="btn btn-ghost btn-sm"><span class="ic" data-icon="refresh"></span> Обновить</button>
         <button id="appModalAdd" class="btn btn-primary btn-sm">Добавить выбранные</button>
       </div>
     </div>
