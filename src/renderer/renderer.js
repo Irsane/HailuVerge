@@ -138,6 +138,8 @@ function renderServers() {
   });
 }
 
+let appList = [];   // selected application process names (chips)
+
 function renderRouting() {
   const r = state.routing;
   const mode = r.mode || 'global';
@@ -147,8 +149,37 @@ function renderRouting() {
   $('#proxyDomains').value = (r.proxyDomains || []).join('\n');
   $('#directDomains').value = (r.directDomains || []).join('\n');
   $('#appMode').value = r.appMode || 'off';
-  $('#appList').value = (r.appList || []).join('\n');
+  appList = [...(r.appList || [])];
+  renderAppChips();
   applyRouteMode(mode);
+}
+
+function renderAppChips() {
+  const wrap = $('#appChips');
+  if (!appList.length) {
+    wrap.innerHTML = '<div class="chips-empty">Программы не выбраны. Добавьте из запущенных или из папки.</div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  appList.forEach((name) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    chip.innerHTML = `<span>${escapeHtml(name)}</span><button class="chip-x" title="Убрать">✕</button>`;
+    chip.querySelector('.chip-x').addEventListener('click', () => {
+      appList = appList.filter((n) => n !== name);
+      renderAppChips();
+    });
+    wrap.appendChild(chip);
+  });
+}
+
+function addApps(names) {
+  let added = 0;
+  names.forEach((n) => {
+    if (n && !appList.some((x) => x.toLowerCase() === n.toLowerCase())) { appList.push(n); added++; }
+  });
+  if (added) renderAppChips();
+  return added;
 }
 
 // Highlight the chosen mode card and show/hide the rule-only section.
@@ -331,7 +362,7 @@ async function saveRouting() {
     proxyDomains: linesOf($('#proxyDomains').value),
     directDomains: linesOf($('#directDomains').value),
     appMode: $('#appMode').value,
-    appList: linesOf($('#appList').value)
+    appList: [...appList]
   };
   state.routing = await window.hv.saveRouting(routing);
   flashSaved('#routingSaved');
@@ -421,6 +452,60 @@ $$('#routeModeChoice .route-card').forEach((card) =>
     $('#routeMode').value = card.dataset.mode;
     applyRouteMode(card.dataset.mode);
   }));
+
+// Instant logs toggle (also persisted on Save)
+$('#logsEnabled').addEventListener('change', async (e) => {
+  const on = e.target.checked;
+  state.settings.logsEnabled = on;                 // update before applyLogs/appendLog gating
+  applyLogsVisibility(on);
+  if (on) appendLog('[hailuverge] логи включены — здесь появятся события ядра');
+  state.settings = await window.hv.saveSettings({ logsEnabled: on });
+});
+
+/* ---------- application picker ---------- */
+let pickerApps = [];
+const appModal = $('#appModal');
+
+async function openAppPicker() {
+  appModal.classList.add('show');
+  $('#appSearch').value = '';
+  $('#appModalList').innerHTML = '<div class="chips-empty">Загрузка…</div>';
+  pickerApps = await window.hv.runningApps();
+  renderPickerList('');
+}
+function closeAppPicker() { appModal.classList.remove('show'); }
+
+function renderPickerList(filter) {
+  const list = $('#appModalList');
+  const f = filter.trim().toLowerCase();
+  const items = pickerApps.filter((n) => !f || n.toLowerCase().includes(f));
+  if (!items.length) { list.innerHTML = '<div class="chips-empty">Ничего не найдено.</div>'; return; }
+  list.innerHTML = '';
+  items.forEach((name) => {
+    const already = appList.some((x) => x.toLowerCase() === name.toLowerCase());
+    const row = document.createElement('label');
+    row.className = 'app-row';
+    row.innerHTML = `<input type="checkbox" ${already ? 'checked disabled' : ''} value="${escapeHtml(name)}"><span>${escapeHtml(name)}</span>`;
+    list.appendChild(row);
+  });
+}
+
+$('#pickRunning').addEventListener('click', openAppPicker);
+$('#appModalClose').addEventListener('click', closeAppPicker);
+$('#appModalRefresh').addEventListener('click', openAppPicker);
+$('#appSearch').addEventListener('input', (e) => renderPickerList(e.target.value));
+appModal.addEventListener('click', (e) => { if (e.target === appModal) closeAppPicker(); });
+$('#appModalAdd').addEventListener('click', () => {
+  const picked = $$('#appModalList input:checked:not(:disabled)').map((c) => c.value);
+  const n = addApps(picked);
+  closeAppPicker();
+  if (n) toast(`Добавлено: ${n}`);
+});
+$('#pickFolder').addEventListener('click', async () => {
+  const files = await window.hv.browseApps();
+  const n = addApps(files);
+  if (n) toast(`Добавлено: ${n}`);
+});
 $('#saveRouting').addEventListener('click', saveRouting);
 $('#saveSettings').addEventListener('click', saveSettings);
 $('#openCoreFolder').addEventListener('click', () => window.hv.openCoreFolder());

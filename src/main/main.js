@@ -1,7 +1,8 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, shell, dialog } = require('electron');
 const path = require('path');
+const { execFile } = require('child_process');
 
 const store = require('./store');
 const subscription = require('./subscription');
@@ -194,6 +195,59 @@ function registerIpc() {
   ipcMain.handle('core:checkBinary', async () => core.checkBinary());
   ipcMain.handle('app:openExternal', async (_e, url) => shell.openExternal(url));
   ipcMain.handle('app:openCoreFolder', async () => shell.openPath(core.coreDir()));
+
+  ipcMain.handle('apps:running', async () => listRunningProcesses());
+  ipcMain.handle('apps:browse', async () => {
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: 'Выберите программы',
+      properties: ['openFile', 'multiSelections'],
+      filters: process.platform === 'win32'
+        ? [{ name: 'Программы', extensions: ['exe'] }]
+        : [{ name: 'Все файлы', extensions: ['*'] }]
+    });
+    if (res.canceled) return [];
+    return res.filePaths.map((p) => path.basename(p));
+  });
+}
+
+// Enumerate running user processes so the app picker can list them.
+function listRunningProcesses() {
+  return new Promise((resolve) => {
+    if (process.platform === 'win32') {
+      execFile('tasklist', ['/fo', 'csv', '/nh'], { maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
+        if (err) return resolve([]);
+        const names = out.split(/\r?\n/)
+          .map((l) => (l.match(/^"([^"]+)"/) || [])[1])
+          .filter((n) => n && /\.exe$/i.test(n));
+        resolve(dedupeApps(names));
+      });
+    } else {
+      execFile('ps', ['-A', '-o', 'comm='], { maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
+        if (err) return resolve([]);
+        const names = out.split(/\r?\n/).map((l) => path.basename(l.trim())).filter(Boolean);
+        resolve(dedupeApps(names));
+      });
+    }
+  });
+}
+
+// Drop obvious OS noise and de-duplicate, sorted alphabetically.
+const SYSTEM_PROCS = new Set([
+  'svchost.exe', 'system', 'registry', 'smss.exe', 'csrss.exe', 'wininit.exe',
+  'services.exe', 'lsass.exe', 'winlogon.exe', 'fontdrvhost.exe', 'dwm.exe',
+  'sihost.exe', 'taskhostw.exe', 'ctfmon.exe', 'conhost.exe', 'runtimebroker.exe',
+  'searchhost.exe', 'dllhost.exe', 'spoolsv.exe', 'wmiprvse.exe', 'memcompression'
+]);
+function dedupeApps(names) {
+  const seen = new Set();
+  const out = [];
+  for (const n of names) {
+    const key = n.toLowerCase();
+    if (seen.has(key) || SYSTEM_PROCS.has(key)) continue;
+    seen.add(key);
+    out.push(n);
+  }
+  return out.sort((a, b) => a.localeCompare(b));
 }
 
 function mergeServers(source, incoming, isManual = false) {
@@ -206,22 +260,36 @@ function mergeServers(source, incoming, isManual = false) {
   store.set('servers', [...byId.values()]);
 }
 
-app.whenReady().then(() => {
-  store.init();
-  registerIpc();
-  createWindow();
-  createTray();
-
-  if (store.get('settings').autoConnect) {
-    connectBest().then(broadcastStatus).catch((err) => {
-      if (mainWindow) mainWindow.webContents.send('core:log', `[auto] ${err.message}`);
-    });
-  }
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+// Only allow one running instance — relaunching focuses the tray-minimized window.
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (!mainWindow.isVisible()) mainWindow.show();
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
   });
-});
+
+  app.whenReady().then(() => {
+    store.init();
+    registerIpc();
+    createWindow();
+    createTray();
+
+    if (store.get('settings').autoConnect) {
+      connectBest().then(broadcastStatus).catch((err) => {
+        if (mainWindow) mainWindow.webContents.send('core:log', `[auto] ${err.message}`);
+      });
+    }
+
+    app.on('activate', () => {
+      if (mainWindow) mainWindow.show();
+      else createWindow();
+    });
+  });
+}
 
 app.on('before-quit', () => { isQuitting = true; });
 app.on('quit', () => core.stop());

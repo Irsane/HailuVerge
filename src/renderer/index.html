@@ -139,15 +139,17 @@
 
           <div class="card">
             <div class="field-label">🎯 Правило для приложений</div>
-            <div class="field-hint">Применить прокси/прямой доступ только к выбранным программам. Имена процессов — по одному в строке.</div>
+            <div class="field-hint">Применить прокси/прямой доступ только к выбранным программам.</div>
             <div class="row-gap" style="margin-top:10px">
               <select id="appMode" class="select">
                 <option value="off">Не использовать</option>
                 <option value="proxy">Только эти — через прокси</option>
                 <option value="direct">Только эти — напрямую</option>
               </select>
+              <button id="pickRunning" class="btn btn-ghost btn-sm">➕ Из запущенных</button>
+              <button id="pickFolder" class="btn btn-ghost btn-sm">📁 Из папки</button>
             </div>
-            <textarea id="appList" class="textarea" spellcheck="false" placeholder="chrome.exe&#10;telegram.exe&#10;discord.exe"></textarea>
+            <div id="appChips" class="chips"></div>
           </div>
         </div>
 
@@ -232,6 +234,23 @@
   </div>
 
   <div id="toast" class="toast"></div>
+
+  <!-- Running-apps picker -->
+  <div id="appModal" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-head">
+        <div class="modal-title">Запущенные программы</div>
+        <button id="appModalClose" class="modal-x">✕</button>
+      </div>
+      <input id="appSearch" class="input" placeholder="Поиск…" />
+      <div id="appModalList" class="modal-list"></div>
+      <div class="modal-foot">
+        <button id="appModalRefresh" class="btn btn-ghost btn-sm">⟳ Обновить</button>
+        <button id="appModalAdd" class="btn btn-primary btn-sm">Добавить выбранные</button>
+      </div>
+    </div>
+  </div>
+
   <script src="renderer.js"></script>
 </body>
 </html>

@@ -23,6 +23,9 @@ contextBridge.exposeInMainWorld('hv', {
   openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
   openCoreFolder: () => ipcRenderer.invoke('app:openCoreFolder'),
 
+  runningApps: () => ipcRenderer.invoke('apps:running'),
+  browseApps: () => ipcRenderer.invoke('apps:browse'),
+
   onStatus: (cb) => ipcRenderer.on('status:update', (_e, s) => cb(s)),
   onLog: (cb) => ipcRenderer.on('core:log', (_e, line) => cb(line))
 });
