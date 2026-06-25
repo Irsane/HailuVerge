@@ -53,6 +53,7 @@ function renderStatus(status) {
   power.classList.toggle('on', running);
   power.classList.toggle('off', !running);
   power.classList.toggle('connecting', !!connecting);
+  power.closest('.power-wrap').classList.toggle('on', running);
 
   $('#heroStatus').textContent = connecting ? 'Подключение…' : (running ? 'Подключено' : 'Отключено');
   $('#heroServer').textContent = status?.server ? status.server.name : 'Сервер не выбран';
@@ -319,9 +320,25 @@ function linesOf(text) {
 function flashSaved(sel) {
   const el = $(sel);
   el.textContent = '✓ Сохранено';
+  el.classList.add('show');
   clearTimeout(el._t);
-  el._t = setTimeout(() => { el.textContent = ''; }, 2200);
+  el._t = setTimeout(() => { el.classList.remove('show'); }, 2200);
 }
+
+/* Ripple effect on buttons */
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn');
+  if (!btn || btn.disabled) return;
+  const rect = btn.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  const ripple = document.createElement('span');
+  ripple.className = 'ripple';
+  ripple.style.width = ripple.style.height = `${size}px`;
+  ripple.style.left = `${e.clientX - rect.left - size / 2}px`;
+  ripple.style.top = `${e.clientY - rect.top - size / 2}px`;
+  btn.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 600);
+});
 
 /* ---------- log ---------- */
 const logBox = $('#logBox');

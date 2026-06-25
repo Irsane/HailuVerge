@@ -22,7 +22,7 @@ const DEFAULTS = {
     coreBinaryPath: ''        // optional custom path to sing-box binary
   },
   routing: {
-    mode: 'rule',             // 'rule' = split routing, 'global' = everything via proxy
+    mode: 'global',           // start GLOBAL: all traffic via proxy. Switch to 'rule' in settings.
     finalOutbound: 'proxy',   // default action for unmatched traffic: 'proxy' | 'direct'
     proxyDomains: [
       'youtube.com',
