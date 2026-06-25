@@ -18,7 +18,7 @@
         <button class="nav-item" data-view="servers"><span class="ic">🌐</span> Серверы</button>
         <button class="nav-item" data-view="routing"><span class="ic">🧭</span> Маршрутизация</button>
         <button class="nav-item" data-view="settings"><span class="ic">⚙️</span> Настройки</button>
-        <button class="nav-item" data-view="logs"><span class="ic">📋</span> Логи</button>
+        <button class="nav-item" id="navLogs" data-view="logs"><span class="ic">📋</span> Логи</button>
       </nav>
       <div class="sidebar-foot">
         <div id="sideStatus" class="side-status off">
@@ -38,6 +38,18 @@
           </div>
           <div id="heroStatus" class="hero-status">Отключено</div>
           <div id="heroServer" class="hero-server">Сервер не выбран</div>
+
+          <div class="mode-switch" id="modeSwitch">
+            <button class="mode-opt" data-mode="tun">
+              <span class="mode-title">TUN</span>
+              <span class="mode-sub">всё, вкл. Telegram/Discord</span>
+            </button>
+            <button class="mode-opt" data-mode="proxy">
+              <span class="mode-title">Системный прокси</span>
+              <span class="mode-sub">проще, только TCP</span>
+            </button>
+          </div>
+
           <div class="hero-actions">
             <button id="bestBtn" class="btn btn-ghost">Авто (лучший пинг)</button>
           </div>
@@ -79,66 +91,79 @@
       <section class="view" id="view-routing">
         <div class="view-head"><h2>Маршрутизация</h2></div>
 
+        <!-- Step 1: choose how traffic is split -->
+        <div class="card">
+          <div class="step"><span class="step-num">1</span> Как пускать трафик?</div>
+          <div class="route-choice" id="routeModeChoice">
+            <button class="route-card" data-mode="global">
+              <div class="route-card-title">🌍 Всё через прокси</div>
+              <div class="route-card-desc">Весь интернет идёт через VPN. Самый простой вариант.</div>
+            </button>
+            <button class="route-card" data-mode="rule">
+              <div class="route-card-title">🧭 По правилам</div>
+              <div class="route-card-desc">Сам выбираешь, какие сайты и приложения через прокси, а какие напрямую.</div>
+            </button>
+          </div>
+          <input type="hidden" id="routeMode" value="global" />
+        </div>
+
+        <!-- Step 2: rule details (only relevant for "По правилам") -->
+        <div id="ruleSettings">
+          <div class="step step-sep"><span class="step-num">2</span> Настройка правил</div>
+
+          <div class="card">
+            <div class="field-row">
+              <div>
+                <div class="field-label">Весь остальной трафик</div>
+                <div class="field-hint">То, что не указано в списках ниже, пойдёт этим путём.</div>
+              </div>
+              <select id="finalOutbound" class="select">
+                <option value="proxy">Через прокси</option>
+                <option value="direct">Напрямую (без VPN)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="card accent-proxy">
+              <div class="field-label">🔒 Через прокси — эти сайты</div>
+              <div class="field-hint">Домены, которые всегда идут через VPN (например, заблокированные). По одному в строке.</div>
+              <textarea id="proxyDomains" class="textarea" spellcheck="false" placeholder="youtube.com&#10;instagram.com"></textarea>
+            </div>
+            <div class="card accent-direct">
+              <div class="field-label">➡️ Напрямую — эти сайты</div>
+              <div class="field-hint">Домены мимо VPN (банки, госуслуги, российские сервисы). По одному в строке.</div>
+              <textarea id="directDomains" class="textarea" spellcheck="false" placeholder="sberbank.ru&#10;gosuslugi.ru"></textarea>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="field-label">🎯 Правило для приложений</div>
+            <div class="field-hint">Применить прокси/прямой доступ только к выбранным программам. Имена процессов — по одному в строке.</div>
+            <div class="row-gap" style="margin-top:10px">
+              <select id="appMode" class="select">
+                <option value="off">Не использовать</option>
+                <option value="proxy">Только эти — через прокси</option>
+                <option value="direct">Только эти — напрямую</option>
+              </select>
+            </div>
+            <textarea id="appList" class="textarea" spellcheck="false" placeholder="chrome.exe&#10;telegram.exe&#10;discord.exe"></textarea>
+          </div>
+        </div>
+
+        <!-- Always available -->
         <div class="card">
           <div class="field-row">
             <div>
-              <div class="field-label">Режим</div>
-              <div class="field-hint">Правила — умное разделение. Глобально — весь трафик через прокси.</div>
-            </div>
-            <select id="routeMode" class="select">
-              <option value="rule">По правилам</option>
-              <option value="global">Глобально</option>
-            </select>
-          </div>
-          <div class="field-row">
-            <div>
-              <div class="field-label">Прочий трафик</div>
-              <div class="field-hint">Куда направлять то, что не попало под правила.</div>
-            </div>
-            <select id="finalOutbound" class="select">
-              <option value="proxy">Через прокси</option>
-              <option value="direct">Напрямую</option>
-            </select>
-          </div>
-          <div class="field-row">
-            <div>
-              <div class="field-label">Блокировать рекламу</div>
-              <div class="field-hint">Фильтр рекламных и трекинговых доменов.</div>
+              <div class="field-label">🛡 Блокировать рекламу</div>
+              <div class="field-hint">Фильтрует рекламные и трекинговые домены. Работает в любом режиме.</div>
             </div>
             <label class="switch"><input type="checkbox" id="blockAds" /><span class="slider"></span></label>
           </div>
         </div>
 
-        <div class="grid-2">
-          <div class="card">
-            <div class="field-label">Через прокси (домены)</div>
-            <div class="field-hint">Каждый домен с новой строки. Заблокированные сайты.</div>
-            <textarea id="proxyDomains" class="textarea" spellcheck="false"></textarea>
-          </div>
-          <div class="card">
-            <div class="field-label">Напрямую (домены)</div>
-            <div class="field-hint">Российские и локальные сервисы — мимо прокси.</div>
-            <textarea id="directDomains" class="textarea" spellcheck="false"></textarea>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="field-row">
-            <div>
-              <div class="field-label">Прокси только для выбранных приложений</div>
-              <div class="field-hint">Режим TUN (нужны права администратора). Перечислите процессы.</div>
-            </div>
-            <select id="appMode" class="select">
-              <option value="off">Выключено</option>
-              <option value="proxy">Только эти — через прокси</option>
-              <option value="direct">Только эти — напрямую</option>
-            </select>
-          </div>
-          <textarea id="appList" class="textarea" spellcheck="false" placeholder="chrome.exe&#10;telegram.exe&#10;discord.exe"></textarea>
-        </div>
-
         <div class="view-foot">
-          <button id="saveRouting" class="btn btn-primary">Сохранить маршрутизацию</button>
+          <button id="saveRouting" class="btn btn-primary">Сохранить</button>
           <span id="routingSaved" class="saved-hint"></span>
         </div>
       </section>
@@ -153,18 +178,13 @@
             <label class="switch"><input type="checkbox" id="autoConnect" /><span class="slider"></span></label>
           </div>
           <div class="field-row">
-            <div><div class="field-label">Полный захват трафика (TUN)</div>
-              <div class="field-hint">Захватывает весь трафик, включая UDP — нужно для Telegram, Discord и игр. Требует прав администратора.</div></div>
-            <label class="switch"><input type="checkbox" id="tunMode" /><span class="slider"></span></label>
-          </div>
-          <div class="field-row">
-            <div><div class="field-label">Системный прокси</div>
-              <div class="field-hint">Запасной режим, когда TUN выключен (только TCP).</div></div>
-            <label class="switch"><input type="checkbox" id="systemProxy" /><span class="slider"></span></label>
-          </div>
-          <div class="field-row">
             <div><div class="field-label">Сворачивать в трей</div></div>
             <label class="switch"><input type="checkbox" id="minimizeToTray" /><span class="slider"></span></label>
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Показывать логи</div>
+              <div class="field-hint">Включает вкладку «Логи» и сбор логов ядра. По умолчанию выключено.</div></div>
+            <label class="switch"><input type="checkbox" id="logsEnabled" /><span class="slider"></span></label>
           </div>
           <div class="field-row">
             <div><div class="field-label">Доступ из локальной сети</div>

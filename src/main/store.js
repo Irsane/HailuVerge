@@ -17,6 +17,7 @@ const DEFAULTS = {
     minimizeToTray: true,
     tunMode: true,            // capture ALL traffic incl. UDP (fixes Telegram/Discord); needs admin
     systemProxy: true,        // fallback: set OS proxy when TUN is off (TCP only)
+    logsEnabled: false,       // collect/show core logs only when enabled
     allowLan: false,
     socksPort: 2080,
     httpPort: 2081,

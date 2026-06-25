@@ -1,6 +1,6 @@
 {
   "name": "hailuverge",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "HailuVerge — a simple, modern desktop proxy client (VLESS / Hysteria / TCP / UDP / XUDP)",
   "main": "src/main/main.js",
   "author": "HailuVerge",

@@ -130,7 +130,6 @@ function renderServers() {
       ${isActive ? '<span class="s-active-dot"></span>' : ''}
       <div class="s-main">
         <div class="s-name">${escapeHtml(s.name)}</div>
-        <div class="s-sub">${escapeHtml(s.server)}:${s.port}</div>
       </div>
       <span class="badge ${s.isRussian ? 'ru' : ''}">${s.protocol}${s.isRussian ? ' · RU' : ''}</span>
       <span class="ping ${pingClass(s.latency)}">${pingText(s.latency)}</span>`;
@@ -141,26 +140,51 @@ function renderServers() {
 
 function renderRouting() {
   const r = state.routing;
-  $('#routeMode').value = r.mode || 'rule';
+  const mode = r.mode || 'global';
+  $('#routeMode').value = mode;
   $('#finalOutbound').value = r.finalOutbound || 'proxy';
   $('#blockAds').checked = !!r.blockAds;
   $('#proxyDomains').value = (r.proxyDomains || []).join('\n');
   $('#directDomains').value = (r.directDomains || []).join('\n');
   $('#appMode').value = r.appMode || 'off';
   $('#appList').value = (r.appList || []).join('\n');
+  applyRouteMode(mode);
+}
+
+// Highlight the chosen mode card and show/hide the rule-only section.
+function applyRouteMode(mode) {
+  $$('#routeModeChoice .route-card').forEach((c) =>
+    c.classList.toggle('selected', c.dataset.mode === mode));
+  $('#ruleSettings').style.display = mode === 'rule' ? 'block' : 'none';
 }
 
 function renderSettings() {
   const s = state.settings;
   $('#autoConnect').checked = !!s.autoConnect;
-  $('#tunMode').checked = !!s.tunMode;
-  $('#systemProxy').checked = !!s.systemProxy;
   $('#minimizeToTray').checked = !!s.minimizeToTray;
+  $('#logsEnabled').checked = !!s.logsEnabled;
   $('#allowLan').checked = !!s.allowLan;
   $('#socksPort').value = s.socksPort;
   $('#httpPort').value = s.httpPort;
   $('#coreBinaryPath').value = s.coreBinaryPath || '';
+  applyLogsVisibility(!!s.logsEnabled);
+  applyConnMode(!!s.tunMode);
   refreshBinaryStatus();
+}
+
+// Logs tab visibility follows the setting.
+function applyLogsVisibility(enabled) {
+  $('#navLogs').style.display = enabled ? '' : 'none';
+  if (!enabled) {
+    logBox.textContent = '';
+    if ($('#navLogs').classList.contains('active')) $('.nav-item[data-view="home"]').click();
+  }
+}
+
+// Reflect the active connection mode (TUN vs system proxy) on the Home switch.
+function applyConnMode(tun) {
+  $$('#modeSwitch .mode-opt').forEach((o) =>
+    o.classList.toggle('selected', (o.dataset.mode === 'tun') === tun));
 }
 
 async function refreshBinaryStatus() {
@@ -316,17 +340,31 @@ async function saveRouting() {
 async function saveSettings() {
   const settings = {
     autoConnect: $('#autoConnect').checked,
-    tunMode: $('#tunMode').checked,
-    systemProxy: $('#systemProxy').checked,
     minimizeToTray: $('#minimizeToTray').checked,
+    logsEnabled: $('#logsEnabled').checked,
     allowLan: $('#allowLan').checked,
     socksPort: Number($('#socksPort').value) || 2080,
     httpPort: Number($('#httpPort').value) || 2081,
     coreBinaryPath: $('#coreBinaryPath').value.trim()
   };
   state.settings = await window.hv.saveSettings(settings);
+  applyLogsVisibility(settings.logsEnabled);
   refreshBinaryStatus();
   flashSaved('#settingsSaved');
+}
+
+// Switch between TUN and system-proxy from the Home screen. Reconnects if active.
+async function setConnMode(tun) {
+  state.settings = await window.hv.saveSettings({ tunMode: tun, systemProxy: true });
+  applyConnMode(tun);
+  toast(tun ? 'Режим: TUN (полный захват)' : 'Режим: системный прокси');
+  if (state.status.running && state.activeServerId) {
+    renderStatus({ ...state.status, connecting: true });
+    try {
+      const status = await window.hv.connect(state.activeServerId);
+      renderStatus(status);
+    } catch (e) { renderStatus({ running: false }); toast(e.message, true); }
+  }
 }
 
 function linesOf(text) {
@@ -358,6 +396,7 @@ document.addEventListener('click', (e) => {
 /* ---------- log ---------- */
 const logBox = $('#logBox');
 function appendLog(line) {
+  if (!state.settings.logsEnabled) return;   // only collect when enabled
   const atBottom = logBox.scrollHeight - logBox.scrollTop - logBox.clientHeight < 40;
   logBox.textContent += line + '\n';
   if (logBox.textContent.length > 80000) logBox.textContent = logBox.textContent.slice(-60000);
@@ -371,6 +410,17 @@ $('#pingBtn').addEventListener('click', () => pingAll());
 $('#sortMode').addEventListener('change', (e) => { sortMode = e.target.value; renderServers(); });
 $('#powerBtn').addEventListener('click', togglePower);
 $('#bestBtn').addEventListener('click', connectBest);
+
+// Home connection-mode switch (TUN / system proxy)
+$$('#modeSwitch .mode-opt').forEach((opt) =>
+  opt.addEventListener('click', () => setConnMode(opt.dataset.mode === 'tun')));
+
+// Routing mode choice cards
+$$('#routeModeChoice .route-card').forEach((card) =>
+  card.addEventListener('click', () => {
+    $('#routeMode').value = card.dataset.mode;
+    applyRouteMode(card.dataset.mode);
+  }));
 $('#saveRouting').addEventListener('click', saveRouting);
 $('#saveSettings').addEventListener('click', saveSettings);
 $('#openCoreFolder').addEventListener('click', () => window.hv.openCoreFolder());
