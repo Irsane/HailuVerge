@@ -94,13 +94,15 @@ core.on('log', (line) => {
 async function connectBest() {
   const servers = store.get('servers');
   if (!servers.length) throw new Error('Нет серверов. Добавьте подписку.');
-  const candidates = servers.filter((s) => !s.isRussian);
-  const pool = candidates.length ? candidates : servers;
-  const results = await ping.measureAll(pool);
+  // Skip Russian and mobile/LTE servers when auto-selecting the best one.
+  const candidates = servers.filter((s) => !s.isRussian && !s.isLte);
+  const pool = candidates.length ? candidates : servers.filter((s) => !s.isRussian);
+  const finalPool = pool.length ? pool : servers;
+  const results = await ping.measureAll(finalPool);
   const best = results
     .filter((r) => r.latency != null)
     .sort((a, b) => a.latency - b.latency)[0];
-  const chosen = best ? best.server : pool[0];
+  const chosen = best ? best.server : finalPool[0];
   await core.start(chosen, store.get('settings'), store.get('routing'));
   store.set('activeServerId', chosen.id);
   return chosen;

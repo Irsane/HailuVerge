@@ -105,7 +105,7 @@ class Core extends EventEmitter {
     });
 
     // Apply system proxy (unless using TUN, which captures traffic at the OS level).
-    const usingTun = routing.appMode && routing.appMode !== 'off';
+    const usingTun = settings.tunMode || (routing.appMode && routing.appMode !== 'off');
     if (settings.systemProxy && !usingTun) {
       await sysProxy.enable('127.0.0.1', settings.httpPort, settings.socksPort).catch((e) =>
         this.emit('log', `[proxy] не удалось включить системный прокси: ${e.message}`));

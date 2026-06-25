@@ -15,7 +15,8 @@ const DEFAULTS = {
   settings: {
     autoConnect: true,        // connect to best (non-RU) server on launch
     minimizeToTray: true,
-    systemProxy: true,        // set OS proxy to the local mixed inbound
+    tunMode: true,            // capture ALL traffic incl. UDP (fixes Telegram/Discord); needs admin
+    systemProxy: true,        // fallback: set OS proxy when TUN is off (TCP only)
     allowLan: false,
     socksPort: 2080,
     httpPort: 2081,

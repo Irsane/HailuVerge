@@ -95,45 +95,53 @@ function buildProxyOutbound(server) {
   }
 }
 
+// TUN captures ALL traffic (TCP + UDP) so apps like Telegram/Discord work.
+// It needs admin/root. When off we fall back to a local mixed proxy + system proxy.
+function tunActive(settings, routing) {
+  return !!settings.tunMode || (routing.appMode && routing.appMode !== 'off');
+}
+
 function buildInbounds(settings, routing) {
-  const usingTun = routing.appMode && routing.appMode !== 'off';
   const inbounds = [{
     type: 'mixed',
     tag: 'mixed-in',
     listen: settings.allowLan ? '0.0.0.0' : '127.0.0.1',
     listen_port: Number(settings.socksPort),
-    set_system_proxy: false
+    udp_timeout: '5m'
   }];
-  // Separate HTTP port for system-proxy clients that need an explicit HTTP endpoint.
+  // Separate HTTP port for clients that need an explicit HTTP proxy endpoint.
   inbounds.push({
     type: 'http',
     tag: 'http-in',
     listen: settings.allowLan ? '0.0.0.0' : '127.0.0.1',
     listen_port: Number(settings.httpPort)
   });
-  if (usingTun) {
-    // TUN enables true per-application routing via process_name rules (needs admin/root).
+  if (tunActive(settings, routing)) {
     inbounds.push({
       type: 'tun',
       tag: 'tun-in',
       interface_name: 'hailuverge0',
-      address: ['172.19.0.1/30'],
+      address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
+      mtu: 9000,
       auto_route: true,
       strict_route: true,
-      stack: 'system'
+      stack: 'mixed',           // system stack for TCP, gVisor for UDP — reliable for VoIP/games
+      endpoint_independent_nat: true
     });
   }
   return inbounds;
 }
 
-function buildRouteRules(routing) {
+function buildRouteRules(settings, routing) {
   const rules = [];
 
-  // DNS hijack so the resolver inside sing-box handles lookups.
-  rules.push({ protocol: 'dns', outbound: 'dns-out' });
+  // Sniff protocol/SNI so domain rules and UDP (QUIC/DNS) are handled correctly.
+  rules.push({ action: 'sniff' });
+  // Resolve DNS queries inside sing-box.
+  rules.push({ protocol: 'dns', action: 'hijack-dns' });
 
   if (routing.blockAds) {
-    rules.push({ rule_set: ['geosite-category-ads-all'], outbound: 'block' });
+    rules.push({ rule_set: ['geosite-category-ads-all'], action: 'reject' });
   }
 
   // Per-application routing (TUN only): force selected processes one way.
@@ -161,13 +169,17 @@ function buildRouteRules(routing) {
 }
 
 function buildRuleSets(routing) {
-  if (routing.mode === 'global') return [];
   const base = 'https://raw.githubusercontent.com/SagerNet/sing-geosite/rule-set';
   const ipBase = 'https://raw.githubusercontent.com/SagerNet/sing-geoip/rule-set';
-  const sets = [
-    { tag: 'geosite-ru', type: 'remote', format: 'binary', url: `${base}/geosite-category-ru.srs`, download_detour: 'proxy' },
-    { tag: 'geoip-ru', type: 'remote', format: 'binary', url: `${ipBase}/geoip-ru.srs`, download_detour: 'proxy' }
-  ];
+  const sets = [];
+  // RU split lists are only needed in rule mode.
+  if (routing.mode !== 'global') {
+    sets.push(
+      { tag: 'geosite-ru', type: 'remote', format: 'binary', url: `${base}/geosite-category-ru.srs`, download_detour: 'proxy' },
+      { tag: 'geoip-ru', type: 'remote', format: 'binary', url: `${ipBase}/geoip-ru.srs`, download_detour: 'proxy' }
+    );
+  }
+  // Ad-block list applies in any mode when enabled.
   if (routing.blockAds) {
     sets.push({ tag: 'geosite-category-ads-all', type: 'remote', format: 'binary',
       url: `${base}/geosite-category-ads-all.srs`, download_detour: 'proxy' });
@@ -180,6 +192,15 @@ function buildConfig(server, settings, routing) {
     ? 'proxy'
     : (routing.finalOutbound === 'direct' ? 'direct' : 'proxy');
 
+  // Only add direct-DNS rules in rule mode; in global mode everything resolves remotely.
+  const dnsRules = [];
+  if (routing.mode !== 'global') {
+    dnsRules.push({ rule_set: ['geosite-ru'], server: 'dns-direct' });
+    if (routing.directDomains && routing.directDomains.length) {
+      dnsRules.push({ domain_suffix: routing.directDomains, server: 'dns-direct' });
+    }
+  }
+
   return {
     log: { level: 'info', timestamp: true },
     dns: {
@@ -187,22 +208,18 @@ function buildConfig(server, settings, routing) {
         { tag: 'dns-remote', address: 'https://1.1.1.1/dns-query', detour: 'proxy' },
         { tag: 'dns-direct', address: 'https://77.88.8.8/dns-query', detour: 'direct' }
       ],
-      rules: [
-        { rule_set: ['geosite-ru'], server: 'dns-direct' },
-        { domain_suffix: routing.directDomains || [], server: 'dns-direct' }
-      ],
+      rules: dnsRules,
       final: 'dns-remote',
-      strategy: 'prefer_ipv4'
+      strategy: 'prefer_ipv4',
+      independent_cache: true
     },
     inbounds: buildInbounds(settings, routing),
     outbounds: [
       buildProxyOutbound(server),
-      { type: 'direct', tag: 'direct' },
-      { type: 'block', tag: 'block' },
-      { type: 'dns', tag: 'dns-out' }
+      { type: 'direct', tag: 'direct' }
     ],
     route: {
-      rules: buildRouteRules(routing),
+      rules: buildRouteRules(settings, routing),
       rule_set: buildRuleSets(routing),
       final: finalOutbound,
       auto_detect_interface: true

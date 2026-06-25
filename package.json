@@ -1,6 +1,6 @@
 {
   "name": "hailuverge",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "HailuVerge — a simple, modern desktop proxy client (VLESS / Hysteria / TCP / UDP / XUDP)",
   "main": "src/main/main.js",
   "author": "HailuVerge",
@@ -35,7 +35,13 @@
     ],
     "win": {
       "target": ["nsis"],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "requestedExecutionLevel": "requireAdministrator"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true
     },
     "mac": {
       "target": ["dmg"],

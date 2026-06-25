@@ -6,6 +6,7 @@ const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 let state = { servers: [], subscriptions: [], settings: {}, routing: {}, activeServerId: null, status: {} };
 let uptimeTimer = null;
 let measuring = false;
+let sortMode = 'default';
 
 /* ---------- helpers ---------- */
 function toast(msg, isError = false) {
@@ -113,13 +114,13 @@ function renderServers() {
     wrap.innerHTML = '<div class="empty">Нет серверов. Добавьте подписку выше.</div>';
     return;
   }
-  // Sort: active first, then by latency (nulls last).
-  const sorted = [...state.servers].sort((a, b) => {
-    if (a.id === state.activeServerId) return -1;
-    if (b.id === state.activeServerId) return 1;
-    const al = a.latency ?? 1e9, bl = b.latency ?? 1e9;
-    return al - bl;
-  });
+  // Sort according to the selected mode. "default" keeps insertion order.
+  let sorted = [...state.servers];
+  if (sortMode === 'ping') {
+    sorted.sort((a, b) => (a.latency ?? Infinity) - (b.latency ?? Infinity));
+  } else if (sortMode === 'name') {
+    sorted.sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+  }
 
   sorted.forEach((s) => {
     const div = document.createElement('div');
@@ -152,6 +153,7 @@ function renderRouting() {
 function renderSettings() {
   const s = state.settings;
   $('#autoConnect').checked = !!s.autoConnect;
+  $('#tunMode').checked = !!s.tunMode;
   $('#systemProxy').checked = !!s.systemProxy;
   $('#minimizeToTray').checked = !!s.minimizeToTray;
   $('#allowLan').checked = !!s.allowLan;
@@ -314,6 +316,7 @@ async function saveRouting() {
 async function saveSettings() {
   const settings = {
     autoConnect: $('#autoConnect').checked,
+    tunMode: $('#tunMode').checked,
     systemProxy: $('#systemProxy').checked,
     minimizeToTray: $('#minimizeToTray').checked,
     allowLan: $('#allowLan').checked,
@@ -364,7 +367,8 @@ function appendLog(line) {
 /* ---------- wiring ---------- */
 $('#importBtn').addEventListener('click', importSub);
 $('#subInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') importSub(); });
-$('#pingBtn').addEventListener('click', pingAll);
+$('#pingBtn').addEventListener('click', () => pingAll());
+$('#sortMode').addEventListener('change', (e) => { sortMode = e.target.value; renderServers(); });
 $('#powerBtn').addEventListener('click', togglePower);
 $('#bestBtn').addEventListener('click', connectBest);
 $('#saveRouting').addEventListener('click', saveRouting);

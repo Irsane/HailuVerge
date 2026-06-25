@@ -54,6 +54,11 @@
         <div class="view-head">
           <h2>Серверы</h2>
           <div class="row-gap">
+            <select id="sortMode" class="select">
+              <option value="default">Сортировка: обычная</option>
+              <option value="ping">Сортировка: по пингу</option>
+              <option value="name">Сортировка: по названию</option>
+            </select>
             <button id="pingBtn" class="btn btn-ghost">Проверить пинг</button>
           </div>
         </div>
@@ -148,8 +153,13 @@
             <label class="switch"><input type="checkbox" id="autoConnect" /><span class="slider"></span></label>
           </div>
           <div class="field-row">
+            <div><div class="field-label">Полный захват трафика (TUN)</div>
+              <div class="field-hint">Захватывает весь трафик, включая UDP — нужно для Telegram, Discord и игр. Требует прав администратора.</div></div>
+            <label class="switch"><input type="checkbox" id="tunMode" /><span class="slider"></span></label>
+          </div>
+          <div class="field-row">
             <div><div class="field-label">Системный прокси</div>
-              <div class="field-hint">Автоматически направлять трафик системы через HailuVerge.</div></div>
+              <div class="field-hint">Запасной режим, когда TUN выключен (только TCP).</div></div>
             <label class="switch"><input type="checkbox" id="systemProxy" /><span class="slider"></span></label>
           </div>
           <div class="field-row">

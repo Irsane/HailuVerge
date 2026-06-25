@@ -14,6 +14,11 @@ function looksRussian(name = '') {
   return RU_HINTS.some((h) => n.includes(h)) || /\brus?\b/.test(n);
 }
 
+// Mobile/LTE servers are unstable for auto-connect — flag them so we can skip.
+function looksLte(name = '') {
+  return /\b(lte|4g|5g|mobile|mts|megafon|beeline|tele2|yota)\b/i.test(name);
+}
+
 function stableId(parts) {
   return crypto.createHash('sha1').update(parts.join('|')).digest('hex').slice(0, 16);
 }
@@ -63,6 +68,7 @@ function makeServer(base) {
     server: base.server,
     port: Number(base.port),
     isRussian: looksRussian(name) || looksRussian(base.server),
+    isLte: looksLte(name),
     latency: null,
     raw: base
   };
@@ -195,4 +201,4 @@ async function fetchAndParse(url) {
   return { name, servers };
 }
 
-module.exports = { fetchAndParse, parseLinks, parseUri, looksRussian };
+module.exports = { fetchAndParse, parseLinks, parseUri, looksRussian, looksLte };
