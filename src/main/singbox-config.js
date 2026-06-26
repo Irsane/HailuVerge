@@ -124,7 +124,12 @@ function buildInbounds(settings, routing) {
       address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
       mtu: 9000,
       auto_route: true,
-      strict_route: true,
+      // strict_route installs firewall filters that block traffic which tries to
+      // bypass the tunnel. That breaks split tunneling: an app routed "direct"
+      // (or any app not forced through the proxy) loses all connectivity, while
+      // proxied apps keep working because the server IP is auto-excluded.
+      // Only enforce it in global mode, where everything goes through the proxy.
+      strict_route: routing.mode === 'global',
       stack: 'mixed',           // system stack for TCP, gVisor for UDP — reliable for VoIP/games
       endpoint_independent_nat: true
     });
@@ -192,12 +197,22 @@ function buildConfig(server, settings, routing) {
     ? 'proxy'
     : (routing.finalOutbound === 'direct' ? 'direct' : 'proxy');
 
+  // When the "rest" of the traffic goes direct, resolve it with the direct DNS too
+  // (otherwise direct apps depend on the proxy just to look up names).
+  const finalDirect = routing.mode !== 'global' && routing.finalOutbound === 'direct';
+  const dnsFinal = finalDirect ? 'dns-direct' : 'dns-remote';
+
   // Only add direct-DNS rules in rule mode; in global mode everything resolves remotely.
   const dnsRules = [];
   if (routing.mode !== 'global') {
     dnsRules.push({ rule_set: ['geosite-ru'], server: 'dns-direct' });
     if (routing.directDomains && routing.directDomains.length) {
       dnsRules.push({ domain_suffix: routing.directDomains, server: 'dns-direct' });
+    }
+    // Explicitly-proxied domains always resolve through the proxy, even when the
+    // default DNS is direct — so blocked sites still get unrestricted answers.
+    if (finalDirect && routing.proxyDomains && routing.proxyDomains.length) {
+      dnsRules.push({ domain_suffix: routing.proxyDomains, server: 'dns-remote' });
     }
   }
 
@@ -209,7 +224,7 @@ function buildConfig(server, settings, routing) {
         { tag: 'dns-direct', address: 'https://77.88.8.8/dns-query', detour: 'direct' }
       ],
       rules: dnsRules,
-      final: 'dns-remote',
+      final: dnsFinal,
       strategy: 'prefer_ipv4',
       independent_cache: true
     },
