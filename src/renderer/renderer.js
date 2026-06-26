@@ -329,6 +329,7 @@ async function toggleFavorite(id) {
   state.favorites = await window.hv.toggleFavorite(id);
   renderServers();
   renderFavorites();
+  renderStartServers();   // keep the auto-start dropdown in sync with favorites
   toast(wasFav ? 'Убрано из избранного' : 'Добавлено в избранное');
 }
 
@@ -392,6 +393,8 @@ function renderSettings() {
   $('#glassEffect').checked = s.glass !== false;
   setSeg('#densitySeg', s.density || 'comfortable');
   setSeg('#radiusSeg', s.uiRadius || 'soft');
+  $('#startWithVpn').checked = !!s.startWithVpn;
+  renderStartServers();
   $('#autoConnect').checked = !!s.autoConnect;
   $('#minimizeToTray').checked = !!s.minimizeToTray;
   $('#logsEnabled').checked = !!s.logsEnabled;
@@ -417,6 +420,27 @@ function applyLogsVisibility(enabled) {
 function applyConnMode(tun) {
   $$('#modeSwitch .mode-opt').forEach((o) =>
     o.classList.toggle('selected', (o.dataset.mode === 'tun') === tun));
+}
+
+// Populate the "auto-start server" dropdown from the favorites list.
+function renderStartServers() {
+  const sel = $('#startServer');
+  if (!sel) return;
+  const favServers = state.servers.filter((s) => isFavorite(s.id));
+  const current = state.settings.startServerId || '';
+  if (!favServers.length) {
+    sel.innerHTML = '<option value="">Нет избранных серверов</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  const opts = ['<option value="">Лучший из избранного</option>'];
+  favServers.forEach((s) => {
+    const { flag, name } = serverFlag(s);
+    const label = `${flag ? flag + ' ' : ''}${name}`;
+    opts.push(`<option value="${escapeHtml(s.id)}"${s.id === current ? ' selected' : ''}>${escapeHtml(label)}</option>`);
+  });
+  sel.innerHTML = opts.join('');
 }
 
 async function refreshBinaryStatus() {
@@ -574,6 +598,8 @@ async function saveRouting() {
 
 async function saveSettings() {
   const settings = {
+    startWithVpn: $('#startWithVpn').checked,
+    startServerId: $('#startServer').value,
     autoConnect: $('#autoConnect').checked,
     minimizeToTray: $('#minimizeToTray').checked,
     logsEnabled: $('#logsEnabled').checked,
@@ -645,7 +671,6 @@ $('#pingBtn').addEventListener('click', () => pingAll());
 $('#pingFavBtn').addEventListener('click', () => pingAll());
 $('#sortMode').addEventListener('change', (e) => { sortMode = e.target.value; renderServers(); });
 $('#powerBtn').addEventListener('click', togglePower);
-$('#bestBtn').addEventListener('click', connectBest);
 $('#sideStatus').addEventListener('click', togglePower);   // status card doubles as connect/disconnect
 
 // Appearance toggles — apply & persist immediately for a live preview.
@@ -655,6 +680,16 @@ $$('#densitySeg button').forEach((b) =>
   b.addEventListener('click', () => { setSeg('#densitySeg', b.dataset.val); setAppearance({ density: b.dataset.val }); }));
 $$('#radiusSeg button').forEach((b) =>
   b.addEventListener('click', () => { setSeg('#radiusSeg', b.dataset.val); setAppearance({ uiRadius: b.dataset.val }); }));
+
+// Auto-start VPN — persist immediately so it works on next launch without "Save".
+$('#startWithVpn').addEventListener('change', async (e) => {
+  state.settings.startWithVpn = e.target.checked;
+  state.settings = await window.hv.saveSettings({ startWithVpn: e.target.checked });
+});
+$('#startServer').addEventListener('change', async (e) => {
+  state.settings.startServerId = e.target.value;
+  state.settings = await window.hv.saveSettings({ startServerId: e.target.value });
+});
 
 // Home connection-mode switch (TUN / system proxy)
 $$('#modeSwitch .mode-opt').forEach((opt) =>

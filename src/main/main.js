@@ -91,6 +91,28 @@ core.on('log', (line) => {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('core:log', line);
 });
 
+// Auto-start a favorite server on launch. Uses the chosen favorite, or the
+// best-ping favorite when none is pinned. Falls back to the global best server
+// if there are no favorites yet.
+async function startFavoriteOnLaunch() {
+  const servers = store.get('servers');
+  const favs = (store.get('favorites') || [])
+    .map((id) => servers.find((s) => s.id === id))
+    .filter(Boolean);
+  if (!favs.length) return connectBest();
+
+  const chosenId = store.get('settings').startServerId;
+  let chosen = chosenId ? favs.find((s) => s.id === chosenId) : null;
+  if (!chosen) {
+    const results = await ping.measureAll(favs);
+    const best = results.filter((r) => r.latency != null).sort((a, b) => a.latency - b.latency)[0];
+    chosen = best ? best.server : favs[0];
+  }
+  await core.start(chosen, store.get('settings'), store.get('routing'));
+  store.set('activeServerId', chosen.id);
+  return chosen;
+}
+
 // Connect to the lowest-latency server (excluding Russian servers, per requirement).
 async function connectBest() {
   const servers = store.get('servers');
@@ -296,7 +318,12 @@ if (!gotLock) {
     createWindow();
     createTray();
 
-    if (store.get('settings').autoConnect) {
+    const launchSettings = store.get('settings');
+    if (launchSettings.startWithVpn) {
+      startFavoriteOnLaunch().then(broadcastStatus).catch((err) => {
+        if (mainWindow) mainWindow.webContents.send('core:log', `[auto] ${err.message}`);
+      });
+    } else if (launchSettings.autoConnect) {
       connectBest().then(broadcastStatus).catch((err) => {
         if (mainWindow) mainWindow.webContents.send('core:log', `[auto] ${err.message}`);
       });

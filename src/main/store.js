@@ -19,6 +19,8 @@ const DEFAULTS = {
     glass: true,              // frosted-glass blur on surfaces
     density: 'comfortable',   // comfortable | compact
     uiRadius: 'soft',         // sharp | soft | round (corner roundness)
+    startWithVpn: false,      // on launch, auto-connect to a favorite server
+    startServerId: '',        // which favorite to start ('' = best favorite by ping)
     autoConnect: true,        // connect to best (non-RU) server on launch
     minimizeToTray: true,
     tunMode: true,            // capture ALL traffic incl. UDP (fixes Telegram/Discord); needs admin

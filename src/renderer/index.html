@@ -67,18 +67,13 @@
 
           <div class="mode-switch" id="modeSwitch">
             <button class="mode-opt" data-mode="tun">
-              <span class="mode-title">TUN</span>
-              <span class="mode-sub">всё, вкл. Telegram/Discord</span>
+              <span class="mode-title">Режим TUN</span>
             </button>
             <button class="mode-opt" data-mode="proxy">
               <span class="mode-title">Системный прокси</span>
-              <span class="mode-sub">проще, только TCP</span>
             </button>
           </div>
 
-          <div class="hero-actions">
-            <button id="bestBtn" class="btn btn-ghost">Авто (лучший пинг)</button>
-          </div>
           <div class="hero-stats">
             <div class="stat"><div class="stat-label">Протокол</div><div id="statProto" class="stat-value">—</div></div>
             <div class="stat"><div class="stat-label">Пинг</div><div id="statPing" class="stat-value">—</div></div>
@@ -255,8 +250,21 @@
 
         <div class="card">
           <div class="field-row">
+            <div><div class="field-label"><span class="ic" data-icon="bolt"></span> Запускать VPN вместе с приложением</div>
+              <div class="field-hint">При старте сразу подключаться к серверу из «Избранного».</div></div>
+            <label class="switch"><input type="checkbox" id="startWithVpn" /><span class="slider"></span></label>
+          </div>
+          <div class="field-row">
+            <div><div class="field-label">Сервер для автозапуска</div>
+              <div class="field-hint">Выберите из избранного или оставьте «Лучший из избранного».</div></div>
+            <select id="startServer" class="select"></select>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="field-row">
             <div><div class="field-label">Автоподключение при запуске</div>
-              <div class="field-hint">Подключаться к серверу с лучшим пингом (кроме РФ).</div></div>
+              <div class="field-hint">Если автозапуск из избранного выключен — подключаться к лучшему пингу (кроме РФ).</div></div>
             <label class="switch"><input type="checkbox" id="autoConnect" /><span class="slider"></span></label>
           </div>
           <div class="field-row">

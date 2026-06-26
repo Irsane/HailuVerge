@@ -29,6 +29,7 @@
   --radius: 16px;            /* overridden by [data-radius] */
   --blur: 16px;             /* glass strength, zeroed by [data-glass="off"] */
   --inset: rgba(8,11,18,.5); /* recessed surfaces: inputs, lists, log */
+  --sidebar-bg: rgba(14,19,29,.72);
   --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   --font-head: "Unbounded", "Onest", sans-serif;
   --font-body: "Onest", -apple-system, "Segoe UI Variable", "Segoe UI", Roboto, system-ui, sans-serif;
@@ -48,36 +49,42 @@
 /* ===================== Full app themes ===================== */
 /* Each theme repaints the whole window: backgrounds, surfaces, text and accents. */
 [data-theme="indigo"] {
+  --sidebar-bg:rgba(14,19,29,.72);
   --bg:#0a0d14; --bg-2:#0e131d; --card:rgba(26,33,46,.55); --card-solid:#1a212e; --card-2:rgba(32,41,58,.7);
   --border:rgba(255,255,255,.08); --text:#eef2f8; --muted:#8b97a7;
   --accent:#5b7cfa; --accent-2:#8b5cff; --accent-3:#22d3ee; --accent-rgb:91,124,250;
   --aura-1:rgba(91,124,250,.20); --aura-2:rgba(139,92,255,.18); --aura-3:rgba(34,211,238,.14);
 }
 [data-theme="emerald"] {
+  --sidebar-bg:rgba(10,24,19,.72);
   --bg:#06110d; --bg-2:#0a1813; --card:rgba(18,38,31,.55); --card-solid:#12241d; --card-2:rgba(24,48,39,.7);
   --border:rgba(255,255,255,.08); --text:#eafbf3; --muted:#84a99a;
   --accent:#10b981; --accent-2:#06b6d4; --accent-3:#34d399; --accent-rgb:16,185,129;
   --aura-1:rgba(16,185,129,.20); --aura-2:rgba(6,182,212,.18); --aura-3:rgba(52,211,153,.14);
 }
 [data-theme="sunset"] {
+  --sidebar-bg:rgba(27,15,11,.72);
   --bg:#140a08; --bg-2:#1b0f0b; --card:rgba(46,28,22,.55); --card-solid:#241712; --card-2:rgba(58,34,26,.7);
   --border:rgba(255,255,255,.08); --text:#fdeee6; --muted:#b0938a;
   --accent:#f97316; --accent-2:#f43f5e; --accent-3:#fbbf24; --accent-rgb:249,115,22;
   --aura-1:rgba(249,115,22,.22); --aura-2:rgba(244,63,94,.18); --aura-3:rgba(251,191,36,.14);
 }
 [data-theme="rose"] {
+  --sidebar-bg:rgba(25,11,22,.72);
   --bg:#120810; --bg-2:#190b16; --card:rgba(44,22,38,.55); --card-solid:#241320; --card-2:rgba(56,28,48,.7);
   --border:rgba(255,255,255,.08); --text:#fdebf5; --muted:#b08aa2;
   --accent:#f43f5e; --accent-2:#ec4899; --accent-3:#fb7185; --accent-rgb:244,63,94;
   --aura-1:rgba(244,63,94,.20); --aura-2:rgba(236,72,153,.18); --aura-3:rgba(251,113,133,.14);
 }
 [data-theme="cyan"] {
+  --sidebar-bg:rgba(10,24,34,.72);
   --bg:#07121a; --bg-2:#0a1822; --card:rgba(18,38,50,.55); --card-solid:#122430; --card-2:rgba(24,48,62,.7);
   --border:rgba(255,255,255,.08); --text:#e8f7fd; --muted:#84a3b0;
   --accent:#06b6d4; --accent-2:#3b82f6; --accent-3:#22d3ee; --accent-rgb:6,182,212;
   --aura-1:rgba(6,182,212,.20); --aura-2:rgba(59,130,246,.18); --aura-3:rgba(34,211,238,.14);
 }
 [data-theme="violet"] {
+  --sidebar-bg:rgba(19,11,29,.72);
   --bg:#0d0814; --bg-2:#130b1d; --card:rgba(34,24,48,.55); --card-solid:#1d1430; --card-2:rgba(44,30,60,.7);
   --border:rgba(255,255,255,.08); --text:#f3ebfd; --muted:#9d8ab0;
   --accent:#a855f7; --accent-2:#6366f1; --accent-3:#d946ef; --accent-rgb:168,85,247;
@@ -85,6 +92,7 @@
 }
 /* A true light theme to prove themes repaint the whole app. */
 [data-theme="daylight"] {
+  --sidebar-bg:rgba(248,250,254,.78);
   --bg:#eef1f7; --bg-2:#e6eaf2; --card:rgba(255,255,255,.7); --card-solid:#ffffff; --card-2:rgba(255,255,255,.85);
   --border:rgba(15,23,42,.12); --text:#10162a; --muted:#5a6781;
   --accent:#4f46e5; --accent-2:#7c3aed; --accent-3:#0891b2; --accent-rgb:79,70,229;
@@ -161,7 +169,7 @@ body::before {
 /* ---------- Sidebar ---------- */
 .sidebar {
   width: 256px;
-  background: rgba(14, 19, 29, 0.72);
+  background: var(--sidebar-bg);
   backdrop-filter: blur(var(--blur));
   -webkit-backdrop-filter: blur(var(--blur));
   border-right: 1px solid var(--border);
@@ -180,7 +188,7 @@ body::before {
 /* Gentle vertical bob only — no rotation (the old spin made the mark look glitchy). */
 @keyframes logoFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
 .brand-name { font-weight: 700; font-size: 17px; letter-spacing: 0.3px;
-  background: linear-gradient(90deg, #fff, #b9c6ff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  background: linear-gradient(90deg, var(--text), var(--accent)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 
 .nav { display: flex; flex-direction: column; gap: 5px; flex: 1; }
 .nav-item {
@@ -207,7 +215,7 @@ body::before {
 .nav-item:hover { color: var(--text); transform: translateX(3px); }
 .nav-item:hover .ic { transform: scale(1.2) rotate(-6deg); }
 .nav-item:hover::before { opacity: 1; transform: scale(1); }
-.nav-item.active { color: #fff; }
+.nav-item.active { color: var(--text); font-weight: 600; }
 .nav-item.active::before { opacity: 1; transform: scale(1); box-shadow: inset 0 0 0 1px var(--border-hi); }
 .nav-item.active::after {
   content: ""; position: absolute; left: 0; top: 22%; height: 56%; width: 3px;
@@ -249,7 +257,7 @@ body::before {
 @keyframes viewIn { from { opacity: 0; transform: translateY(14px) scale(.99); } to { opacity: 1; transform: none; } }
 .view-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
 .view-head h2 { font-size: 22px; font-weight: 700; letter-spacing: .2px; }
-.view-foot { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+.view-foot { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 18px; }
 .saved-hint { color: var(--good); font-size: 13px; opacity: 0; transition: opacity .3s; }
 .saved-hint.show { opacity: 1; }
 
@@ -294,14 +302,13 @@ body::before {
 /* Connection-mode switch (TUN / system proxy) */
 .mode-switch { display: flex; gap: 10px; margin-top: 22px; }
 .mode-opt {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  display: flex; align-items: center; justify-content: center;
   background: var(--card); border: 1px solid var(--border); border-radius: 13px;
-  padding: 11px 16px; cursor: pointer; min-width: 150px; text-align: left;
+  padding: 13px 18px; cursor: pointer; min-width: 160px; text-align: center;
   transition: transform .2s, border .2s, box-shadow .25s, background .2s;
 }
 .mode-opt:hover { transform: translateY(-2px); border-color: var(--border-hi); }
 .mode-opt .mode-title { font-weight: 700; font-size: 14px; color: var(--text); }
-.mode-opt .mode-sub { font-size: 11.5px; color: var(--muted); }
 .mode-opt.selected {
   border-color: transparent;
   background: linear-gradient(135deg, rgba(var(--accent-rgb),.22), rgba(var(--accent-rgb),.16));
