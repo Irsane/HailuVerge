@@ -122,7 +122,10 @@ function buildInbounds(settings, routing) {
       tag: 'tun-in',
       interface_name: 'hailuverge0',
       address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
-      mtu: 9000,
+      // 9000 is fine when everything is tunneled, but for split tunnelling the
+      // oversized segments can stall large direct transfers (MTU/MSS issues), so
+      // use the standard 1500 in rule mode for reliability.
+      mtu: routing.mode === 'global' ? 9000 : 1500,
       auto_route: true,
       // strict_route installs firewall filters that block traffic which tries to
       // bypass the tunnel. That breaks split tunneling: an app routed "direct"
@@ -221,7 +224,9 @@ function buildConfig(server, settings, routing) {
     dns: {
       servers: [
         { tag: 'dns-remote', address: 'https://1.1.1.1/dns-query', detour: 'proxy' },
-        { tag: 'dns-direct', address: 'https://77.88.8.8/dns-query', detour: 'direct' }
+        // Plain UDP for direct lookups: DoH over a raw IP is often slow/unreliable,
+        // which made direct traffic crawl once it became the default resolver.
+        { tag: 'dns-direct', address: '77.88.8.8', detour: 'direct' }
       ],
       rules: dnsRules,
       final: dnsFinal,

@@ -384,6 +384,9 @@ body::before {
 .input-sm { width: 120px; }
 .textarea { width: 100%; min-height: 150px; resize: vertical; margin-top: 10px; line-height: 1.7; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
 .select { cursor: pointer; }
+/* Native option popup doesn't inherit translucent backgrounds — give it an
+   opaque, theme-aware surface so it isn't dark-on-dark (notably in light theme). */
+.select option { background-color: var(--card-solid); color: var(--text); }
 
 /* ---------- Buttons ---------- */
 .btn {
