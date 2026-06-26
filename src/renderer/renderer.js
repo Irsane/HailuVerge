@@ -5,7 +5,8 @@ const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
 let state = { servers: [], subscriptions: [], favorites: [], settings: {}, routing: {}, activeServerId: null, status: {} };
 let uptimeTimer = null;
-let measuring = false;
+let pingBusy = false;              // guard: one measurement at a time
+let pingingIds = new Set();        // server ids currently being measured (show "…")
 let sortMode = 'default';
 
 /* ---------- inline SVG icons (Lucide-style; no emoji in UI controls) ---------- */
@@ -32,6 +33,8 @@ const ICONS = {
 /* ---------- color themes ---------- */
 const THEMES = [
   { id: 'indigo',  name: 'Индиго',  c1: '#5b7cfa', c2: '#8b5cff' },
+  { id: 'dark',    name: 'Тёмная',  c1: '#3b82f6', c2: '#0b1220' },
+  { id: 'gray',    name: 'Серая',   c1: '#7b8494', c2: '#3a3f48' },
   { id: 'emerald', name: 'Изумруд', c1: '#10b981', c2: '#06b6d4' },
   { id: 'sunset',  name: 'Закат',   c1: '#f97316', c2: '#f43f5e' },
   { id: 'rose',    name: 'Роза',    c1: '#f43f5e', c2: '#ec4899' },
@@ -156,9 +159,10 @@ function pingClass(ms) {
   if (ms < 280) return 'mid';
   return 'bad';
 }
-function pingText(ms) {
+function pingText(ms, id) {
+  if (id != null && pingingIds.has(id)) return '…';
   if (ms != null) return `${ms} мс`;
-  return measuring ? '…' : '—';
+  return '—';
 }
 
 function fmtUptime(start) {
@@ -219,7 +223,7 @@ function renderStatus(status) {
     flagEl.classList.remove('show');
   }
 
-  $('#statPing').textContent = active ? pingText(active.latency) : '—';
+  $('#statPing').textContent = active ? pingText(active.latency, active.id) : '—';
 
   clearInterval(uptimeTimer);
   if (running && status.startedAt) {
@@ -275,14 +279,19 @@ function buildServerRow(s) {
       <div class="s-name">${escapeHtml(name)}</div>
     </div>
     <span class="badge ${s.isRussian ? 'ru' : ''}">${escapeHtml(s.protocol)}</span>
-    <span class="ping ${pingClass(s.latency)}">${pingText(s.latency)}</span>
+    <span class="ping ${pingClass(s.latency)}">${pingText(s.latency, s.id)}</span>
+    <button class="s-iconbtn s-ping1" title="Проверить пинг этого сервера" aria-label="Проверить пинг">${icon('pulse')}</button>
     <button class="s-fav ${fav ? 'on' : ''}" title="${fav ? 'Убрать из избранного' : 'В избранное'}"
             aria-label="${fav ? 'Убрать из избранного' : 'В избранное'}">${icon('star')}</button>`;
-  // Clicking the row connects; clicking the star toggles favorite without connecting.
+  // Clicking the row connects; the inline buttons act on just this server.
   div.addEventListener('click', () => connect(s.id));
   div.querySelector('.s-fav').addEventListener('click', (e) => {
     e.stopPropagation();
     toggleFavorite(s.id);
+  });
+  div.querySelector('.s-ping1').addEventListener('click', (e) => {
+    e.stopPropagation();
+    measureServers([s.id]);
   });
   return div;
 }
@@ -522,24 +531,36 @@ async function removeSub(url) {
   renderServers();
 }
 
-async function pingAll(silent = false) {
-  if (measuring) return;
-  measuring = true;
-  $('#pingBtn').disabled = true;
-  $('#pingBtn').textContent = 'Проверка…';
+// Measure latency for a specific set of server ids. Only those rows show "…".
+async function measureServers(ids, { silent = false, btn = null } = {}) {
+  if (pingBusy || !ids.length) return;
+  pingBusy = true;
+  ids.forEach((id) => pingingIds.add(id));
+  let btnLabel;
+  if (btn) { btn.disabled = true; btnLabel = btn.innerHTML; btn.innerHTML = 'Проверка…'; }
   renderServers();              // show "…" placeholders immediately
   renderFavorites();
   try {
-    state.servers = await window.hv.pingAll();
+    state.servers = await window.hv.pingIds(ids);
   } catch (e) { if (!silent) toast(e.message, true); }
   finally {
-    measuring = false;
-    $('#pingBtn').disabled = false;
-    $('#pingBtn').innerHTML = `${icon('pulse')} Проверить пинг`;
+    ids.forEach((id) => pingingIds.delete(id));
+    pingBusy = false;
+    if (btn) { btn.disabled = false; btn.innerHTML = btnLabel; }
     renderServers();
     renderFavorites();
     renderStatus(state.status);
   }
+}
+
+// Ping every server (Servers tab + startup).
+function pingAll(silent = false) {
+  return measureServers(state.servers.map((s) => s.id), { silent, btn: silent ? null : $('#pingBtn') });
+}
+
+// Ping only the favorites (Favorites tab).
+function pingFavorites() {
+  return measureServers(state.servers.filter((s) => isFavorite(s.id)).map((s) => s.id), { btn: $('#pingFavBtn') });
 }
 
 async function connect(serverId) {
@@ -668,7 +689,7 @@ function appendLog(line) {
 $('#importBtn').addEventListener('click', importSub);
 $('#subInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') importSub(); });
 $('#pingBtn').addEventListener('click', () => pingAll());
-$('#pingFavBtn').addEventListener('click', () => pingAll());
+$('#pingFavBtn').addEventListener('click', () => pingFavorites());
 $('#sortMode').addEventListener('change', (e) => { sortMode = e.target.value; renderServers(); });
 $('#powerBtn').addEventListener('click', togglePower);
 $('#sideStatus').addEventListener('click', togglePower);   // status card doubles as connect/disconnect

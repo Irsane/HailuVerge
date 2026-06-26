@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('hv', {
   toggleFavorite: (serverId) => ipcRenderer.invoke('servers:toggleFavorite', serverId),
 
   pingAll: () => ipcRenderer.invoke('ping:all'),
+  pingIds: (ids) => ipcRenderer.invoke('ping:ids', ids),
 
   connect: (serverId) => ipcRenderer.invoke('core:connect', serverId),
   connectBest: () => ipcRenderer.invoke('core:connectBest'),

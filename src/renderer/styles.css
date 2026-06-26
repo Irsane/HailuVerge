@@ -94,6 +94,23 @@
   --accent:#a855f7; --accent-2:#6366f1; --accent-3:#d946ef; --accent-rgb:168,85,247;
   --aura-1:rgba(168,85,247,.20); --aura-2:rgba(99,102,241,.18); --aura-3:rgba(217,70,239,.14);
 }
+/* Near-black neutral with a clean blue accent. */
+[data-theme="dark"] {
+  --sidebar-bg:rgba(6,8,13,.78);
+  --bg:#04060a; --bg-2:#080b12; --card:rgba(19,24,33,.55); --card-solid:#11161f; --card-2:rgba(26,32,43,.7);
+  --border:rgba(255,255,255,.07); --text:#eef2f8; --muted:#828b9b;
+  --accent:#3b82f6; --accent-2:#2563eb; --accent-3:#38bdf8; --accent-rgb:59,130,246;
+  --aura-1:rgba(59,130,246,.16); --aura-2:rgba(37,99,235,.14); --aura-3:rgba(56,189,248,.10);
+}
+/* Neutral graphite / gray. */
+[data-theme="gray"] {
+  --sidebar-bg:rgba(22,24,28,.8);
+  --bg:#17191e; --bg-2:#1c1f25; --card:rgba(44,48,56,.55); --card-solid:#262a31; --card-2:rgba(56,61,71,.7);
+  --border:rgba(255,255,255,.1); --text:#eef0f4; --muted:#9aa0ab;
+  --accent:#5d6675; --accent-2:#727b8c; --accent-3:#aab2c0; --accent-rgb:93,102,117;
+  --aura-1:rgba(148,163,184,.12); --aura-2:rgba(100,116,139,.12); --aura-3:rgba(203,213,225,.08);
+  --inset:rgba(0,0,0,.25);
+}
 /* A true light theme to prove themes repaint the whole app. */
 [data-theme="daylight"] {
   --sidebar-bg:rgba(248,250,254,.78);
@@ -479,6 +496,16 @@ body::before {
 .s-fav:hover { background: rgba(251,191,36,.12); color: var(--warn); transform: scale(1.12); }
 .s-fav.on { color: var(--warn); }
 .s-fav.on svg { fill: var(--warn); }
+
+/* Per-server inline action (ping this server) */
+.s-iconbtn {
+  flex-shrink: 0; background: transparent; border: none; cursor: pointer;
+  width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+  color: var(--muted); transition: color .2s, background .2s, transform .15s;
+}
+.s-iconbtn svg { width: 17px; height: 17px; }
+.s-iconbtn:hover { background: rgba(var(--accent-rgb),.16); color: var(--accent-3); transform: scale(1.12); }
+.s-iconbtn:disabled { opacity: .5; cursor: default; }
 
 /* ---------- Logs ---------- */
 .log-box { background: rgba(5,7,12,.75); border: 1px solid var(--border); border-radius: 14px; padding: 16px; height: calc(100vh - 160px); overflow-y: auto; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.65; color: #aeb9c8; white-space: pre-wrap; user-select: text; }

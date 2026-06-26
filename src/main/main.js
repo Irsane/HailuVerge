@@ -190,13 +190,22 @@ function registerIpc() {
     return store.get('servers');
   });
 
-  ipcMain.handle('ping:all', async () => {
-    const results = await ping.measureAll(store.get('servers'));
-    const map = {};
-    results.forEach((r) => { map[r.server.id] = r.latency; });
-    const servers = store.get('servers').map((s) => ({ ...s, latency: map[s.id] ?? s.latency }));
+  // Measure latency for the given servers and merge the results into the store.
+  async function measureAndStore(targets) {
+    const results = await ping.measureAll(targets);
+    const map = new Map(results.map((r) => [r.server.id, r.latency]));
+    const servers = store.get('servers').map((s) =>
+      map.has(s.id) ? { ...s, latency: map.get(s.id) } : s);
     store.set('servers', servers);
     return servers;
+  }
+
+  ipcMain.handle('ping:all', () => measureAndStore(store.get('servers')));
+
+  // Ping only the given server ids (used by Favorites and per-server checks).
+  ipcMain.handle('ping:ids', (_e, ids) => {
+    const wanted = new Set(ids || []);
+    return measureAndStore(store.get('servers').filter((s) => wanted.has(s.id)));
   });
 
   ipcMain.handle('core:connect', async (_e, serverId) => {
