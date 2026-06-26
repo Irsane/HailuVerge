@@ -75,21 +75,36 @@ async function measure(server, { timeout = 3500, samples = 2 } = {}) {
   }
 
   const tlsWanted = usesTls(server);
+  const udpProto = server.protocol === 'hysteria' || server.protocol === 'hysteria2';
   // SNI must be a hostname; never an IP (RFC 6066) — omit it otherwise.
   const sniCandidate = (server.raw && (server.raw.sni || server.raw.host)) || hostname;
   const sni = net.isIP(sniCandidate) ? undefined : sniCandidate;
 
-  const readings = [];
+  const tlsReadings = [];
+  const tcpReadings = [];
   for (let i = 0; i < samples; i++) {
-    let ms = tlsWanted ? await tlsProbe(ip, server.port, sni, timeout) : null;
-    if (ms == null) ms = await tcpProbe(ip, server.port, timeout); // fallback / non-TLS
-    if (ms != null) readings.push(ms);
+    if (tlsWanted) {
+      const ms = await tlsProbe(ip, server.port, sni, timeout);
+      if (ms != null) { tlsReadings.push(ms); continue; }
+    }
+    const t = await tcpProbe(ip, server.port, timeout);
+    if (t != null) tcpReadings.push(t);
   }
 
-  if (!readings.length) return { server, latency: null };
-  // Best (min) sample = the cleanest round-trip, ignoring one-off jitter.
-  const best = Math.min(...readings);
-  return { server, latency: Math.max(1, Math.round(best)) };
+  const best = (arr) => Math.max(1, Math.round(Math.min(...arr)));
+
+  // A reading is "reliable" only when we actually validated the server the right
+  // way: a completed TLS handshake for TLS/Reality servers, or a TCP connect for
+  // genuinely TCP services. A bare TCP touch to a UDP (Hysteria) server, or a TCP
+  // fallback after a failed TLS handshake, only reaches the CDN edge — the number
+  // is misleadingly low, so we flag it as unreliable instead of trusting it.
+  if (tlsWanted) {
+    if (tlsReadings.length) return { server, latency: best(tlsReadings), reliable: true };
+    if (tcpReadings.length) return { server, latency: best(tcpReadings), reliable: false };
+    return { server, latency: null, reliable: false };
+  }
+  if (tcpReadings.length) return { server, latency: best(tcpReadings), reliable: !udpProto };
+  return { server, latency: null, reliable: false };
 }
 
 // Probe all servers with bounded concurrency.

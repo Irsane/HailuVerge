@@ -91,6 +91,16 @@ core.on('log', (line) => {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('core:log', line);
 });
 
+// Lowest-latency server from ping results, preferring reliably-measured ones
+// (a reachable server beats a misleadingly-low unreachable probe).
+function pickBest(results) {
+  const sortByPing = (a, b) => a.latency - b.latency;
+  const reliable = results.filter((r) => r.latency != null && r.reliable).sort(sortByPing);
+  if (reliable.length) return reliable[0].server;
+  const any = results.filter((r) => r.latency != null).sort(sortByPing);
+  return any.length ? any[0].server : null;
+}
+
 // Auto-start a favorite server on launch. Uses the chosen favorite, or the
 // best-ping favorite when none is pinned. Falls back to the global best server
 // if there are no favorites yet.
@@ -105,8 +115,7 @@ async function startFavoriteOnLaunch() {
   let chosen = chosenId ? favs.find((s) => s.id === chosenId) : null;
   if (!chosen) {
     const results = await ping.measureAll(favs);
-    const best = results.filter((r) => r.latency != null).sort((a, b) => a.latency - b.latency)[0];
-    chosen = best ? best.server : favs[0];
+    chosen = pickBest(results) || favs[0];
   }
   await core.start(chosen, store.get('settings'), store.get('routing'));
   store.set('activeServerId', chosen.id);
@@ -122,10 +131,8 @@ async function connectBest() {
   const pool = candidates.length ? candidates : servers.filter((s) => !s.isRussian);
   const finalPool = pool.length ? pool : servers;
   const results = await ping.measureAll(finalPool);
-  const best = results
-    .filter((r) => r.latency != null)
-    .sort((a, b) => a.latency - b.latency)[0];
-  const chosen = best ? best.server : finalPool[0];
+  const best = pickBest(results) || finalPool[0];
+  const chosen = best;
   await core.start(chosen, store.get('settings'), store.get('routing'));
   store.set('activeServerId', chosen.id);
   return chosen;
@@ -193,9 +200,11 @@ function registerIpc() {
   // Measure latency for the given servers and merge the results into the store.
   async function measureAndStore(targets) {
     const results = await ping.measureAll(targets);
-    const map = new Map(results.map((r) => [r.server.id, r.latency]));
+    const map = new Map(results.map((r) => [r.server.id, r]));
     const servers = store.get('servers').map((s) =>
-      map.has(s.id) ? { ...s, latency: map.get(s.id) } : s);
+      map.has(s.id)
+        ? { ...s, latency: map.get(s.id).latency, latencyOk: map.get(s.id).reliable !== false }
+        : s);
     store.set('servers', servers);
     return servers;
   }

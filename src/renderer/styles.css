@@ -478,6 +478,8 @@ body::before {
 .badge.ru { color: var(--warn); border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.08); }
 .ping { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 66px; text-align: right; }
 .ping.good { color: var(--good); } .ping.mid { color: var(--warn); } .ping.bad { color: var(--bad); } .ping.none { color: var(--muted); }
+.ping.unreach { color: var(--bad); display: inline-flex; align-items: center; justify-content: flex-end; }
+.ping.unreach svg { width: 18px; height: 18px; filter: drop-shadow(0 0 6px rgba(251,113,133,.5)); }
 .s-active-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--good); box-shadow: 0 0 10px var(--good); animation: blink 1.8s ease-in-out infinite; }
 .empty { color: var(--muted); text-align: center; padding: 48px; }
 .empty-rich { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--muted); text-align: center; padding: 56px 24px; }
