@@ -44,7 +44,11 @@
 
   --border-hi: rgba(var(--accent-rgb), 0.42);
   --glow: 0 0 28px rgba(var(--accent-rgb), 0.45);
+  /* Make native controls (the <select> popup, scrollbars) render dark by default. */
+  color-scheme: dark;
 }
+/* Light theme → native popups render light, so the dropdown isn't dark-on-dark. */
+[data-theme="daylight"] { color-scheme: light; }
 
 /* ===================== Full app themes ===================== */
 /* Each theme repaints the whole window: backgrounds, surfaces, text and accents. */

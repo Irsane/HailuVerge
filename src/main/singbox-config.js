@@ -121,7 +121,11 @@ function buildInbounds(settings, routing) {
       type: 'tun',
       tag: 'tun-in',
       interface_name: 'hailuverge0',
-      address: ['172.19.0.1/30', 'fdfe:dcba:9876::1/126'],
+      // IPv4-only TUN. Capturing IPv6 on networks without working IPv6 makes
+      // "direct" apps hang (they get an AAAA address and try to connect over a
+      // dead v6 path) — proxied apps survive because v6 is reached via the
+      // server. We also force ipv4_only DNS below, so no IPv6 is handed out.
+      address: ['172.19.0.1/30'],
       // 9000 is fine when everything is tunneled, but for split tunnelling the
       // oversized segments can stall large direct transfers (MTU/MSS issues), so
       // use the standard 1500 in rule mode for reliability.
@@ -200,37 +204,18 @@ function buildConfig(server, settings, routing) {
     ? 'proxy'
     : (routing.finalOutbound === 'direct' ? 'direct' : 'proxy');
 
-  // When the "rest" of the traffic goes direct, resolve it with the direct DNS too
-  // (otherwise direct apps depend on the proxy just to look up names).
-  const finalDirect = routing.mode !== 'global' && routing.finalOutbound === 'direct';
-  const dnsFinal = finalDirect ? 'dns-direct' : 'dns-remote';
-
-  // Only add direct-DNS rules in rule mode; in global mode everything resolves remotely.
-  const dnsRules = [];
-  if (routing.mode !== 'global') {
-    dnsRules.push({ rule_set: ['geosite-ru'], server: 'dns-direct' });
-    if (routing.directDomains && routing.directDomains.length) {
-      dnsRules.push({ domain_suffix: routing.directDomains, server: 'dns-direct' });
-    }
-    // Explicitly-proxied domains always resolve through the proxy, even when the
-    // default DNS is direct — so blocked sites still get unrestricted answers.
-    if (finalDirect && routing.proxyDomains && routing.proxyDomains.length) {
-      dnsRules.push({ domain_suffix: routing.proxyDomains, server: 'dns-remote' });
-    }
-  }
-
   return {
     log: { level: 'info', timestamp: true },
+    // Resolve EVERYTHING through the proxy's DoH. It's fast, censorship-free and —
+    // crucially — never depends on the (sometimes flaky) direct path, so name
+    // lookups can't be what breaks direct apps. ipv4_only keeps any IPv6 address
+    // out of apps' hands, which is what was stalling direct connections.
     dns: {
       servers: [
-        { tag: 'dns-remote', address: 'https://1.1.1.1/dns-query', detour: 'proxy' },
-        // Plain UDP for direct lookups: DoH over a raw IP is often slow/unreliable,
-        // which made direct traffic crawl once it became the default resolver.
-        { tag: 'dns-direct', address: '77.88.8.8', detour: 'direct' }
+        { tag: 'dns-remote', address: 'https://1.1.1.1/dns-query', detour: 'proxy' }
       ],
-      rules: dnsRules,
-      final: dnsFinal,
-      strategy: 'prefer_ipv4',
+      final: 'dns-remote',
+      strategy: 'ipv4_only',
       independent_cache: true
     },
     inbounds: buildInbounds(settings, routing),
